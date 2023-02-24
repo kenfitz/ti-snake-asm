@@ -1,0 +1,1488 @@
+       DEF  STDHDR
+**
+* Set Up Cartridge
+*
+* Always mapped to the cartidge address range
+       AORG >6000
+
+STDHDR BYTE >AA               * Indicates a standard header
+       BYTE >01               * Version number
+       BYTE >01               * Number of programs (optional)
+       BYTE >00               * Not used
+       DATA >0000             * Pointer to power-up list (can't use in cartridge ROM)
+       DATA PROG              * Pointer to program list
+       DATA >0000             * Pointer to DSR list
+       DATA >0000             * Pointer to subprogram list
+       DATA >0000             * Pointer to ISR list
+PROG   DATA >0000             * No next menu item
+       DATA MAIN              * Program start address for this menu item
+       BYTE 8                 * Length of text for menu screen
+       TEXT 'TI SNAKE'
+       EVEN
+
+REGLD  BYTE >00,>E0,00,>0E,>01,>06,>00,>00  * REGISTER VALUES
+MAIN   LI   R1,REGLD   * SET BYTE ADDRESS
+       LI   R2,>7F00   * REG WRITE CONSTANT -1
+LOOP   SWPB R2         * MOVE HIGH TO LOW/LOW TO HIGH
+       INC  R2         * SET REGISTER NUMBER
+       MOVB *R1+,R2    * SET VALUE FOR OUTPUT
+       MOVB R2,@>8C02  * WRITE VALUE
+       SWPB R2         * MOVE HIGH TO LOW/LOW TO HIGH
+       MOVB R2,@>8C02  * WRITE REGISTER NUMBER
+       CI   R2,>8700   * CHECK FOR LAST REGISTER
+       JL   LOOP       * GO BACK FOR NEXT REGISTER & VALUE
+       CLR  R1         * TURN OFF SPRITE MOTION.
+       MOVB R1,@>837A  *
+       B    @INIT      * GOTO "9900 CODE" PROGRAM		
+****************************************************
+		
+*-------------------
+* REGISTER USAGE.
+*-------------------
+* R0-R2  Used to read and write to the screen as well as temps
+* R3     
+* R4LB   Holds apples left
+* R4HB   Extra Apples
+* R5     Holds lives left
+* R6     Holds current level
+* R7     Holds head's current position
+* R8     Holds tail's current position
+* R9     General Purpose
+* R10    Used as a stack pointer
+* R11    USED FOR RETURN ADDRESS OF SUBROUTINES.
+* R12    
+* R13    
+* R14    
+* R15    
+
+**********************************************
+*                        EQUATES             *
+*                                            *
+**********************************************
+SUBWS  EQU >8300        * MY OWN WORKSPACE.
+R0HB   EQU SUBWS        * REGISTER 0 HIGH BYTE.
+R0LB   EQU SUBWS+1      * REGISTER 0 LOW BYTE.
+R1HB   EQU SUBWS+2      * REGISTER 1 HIGH BYTE.
+R1LB   EQU SUBWS+3      * REGISTER 1 LOW BYTE.
+R2HB   EQU SUBWS+4      * REGISTER 2 HIGH BYTE.
+R2LB   EQU SUBWS+5      * REGISTER 2 LOW BYTE.
+R3HB   EQU SUBWS+6      * REGISTER 3 HIGH BYTE.
+R3LB   EQU SUBWS+7      * REGISTER 3 LOW BYTE.
+R4HB   EQU SUBWS+8      * REGISTER 4 HIGH BYTE.
+R4LB   EQU SUBWS+9      * REGISTER 4 LOW BYTE.
+
+ASCDEC EQU >8320        * 3 Char Base10 of ASCII Char
+ASCHEX EQU >8323        * 2 Char Base16 of ASCII Char
+TEMP0  EQU >8324        * TEMP REGISTER R0(2BYTES).
+TEMP1  EQU >8326        * TEMP REGISTER R1(2BYTES).
+TEMP2  EQU >8328        * TEMP REGISTER R2(2BYTES).
+TEMP3  EQU >832A        * TEMP REGISTER R3(2BYTES).
+VTMP0  EQU >832C        * VDP TEMP REGISTER R0(2BYTES).
+VTMP1  EQU >832E        * VDP TEMP REGISTER R1(2BYTES).
+VTMP2  EQU >8330        * VDP TEMP REGISTER R2(2BYTES).
+STACK  EQU >8332        * Stack for Return Addresses.
+*      EQU >8334        *
+*      EQU >8336        *
+*      EQU >8338        *
+*      EQU >833A        *
+*      EQU >833C        *
+*      EQU >833E        *
+RAND16 EQU >8340        * 16 BIT RANDOM NUMBER.
+RANDOM EQU >8341        * 8 BIT RANDOM NUMBER.
+LASTKY EQU >8342
+DIR    EQU >8343
+TDIR   EQU >8344
+KEYPRS EQU >8345
+SNKSIZ EQU >8346
+CURSIZ EQU >8348
+OLDHDC EQU >834A
+OLDHDP EQU >834C
+OLDTLC EQU >834E
+OLDTLP EQU >8350
+NEXTLF EQU >8352
+NLFLAG EQU >8353
+TMFLAG EQU >8354
+TIMROW EQU >8356
+TIMDLY EQU >8358
+DELAY  EQU >835A
+*      EQU >835C
+
+* Used by GPL
+*      EQU >8370        * USED BY GPL.
+KEY    EQU >8375        * ASCII VALUE OF KEY PRESSED.
+RSEED  EQU >8379        * Used by random number generator
+STATUS EQU >837C        * GPL STATUS REGISTER.
+*      EQU >8381        *
+
+GPLWS  EQU >83E0        * GPL INTERPRETER GENERAL WORKSPACE.
+*      EQU >8420        * Last byte of scratch ram.
+
+COLTBL EQU >380         * GPL COLOR TABLE BEGINS AT >380.
+
+*
+* SOUND EQUATES.
+*
+SNDMOV EQU >1000        * BEGIN MOVE SOUND LIST.
+SNDTRN EQU >100B        * BEGIN TURN SOUND LIST.
+SNDGRW EQU >1016        * BEGIN GROW SOUND LIST.
+SNDCSH EQU >1021        * BEGIN CRASH SOUND LIST.
+SNDGLP EQU >1041        * BEGIN GULP SOUND LIST.
+
+
+*
+* VARIABLES
+*
+
+*
+* CONSTANTS
+*
+TRUE   BYTE 1
+FALSE  BYTE 0
+HEXFF  BYTE >FF
+STRPOS DATA 751         * X=23,Y=15 
+ENDPOS DATA 47          * X=1 ,Y=15
+SSNKSZ DATA 7           * Starting Snake Size
+TMRDLY DATA 3           * Timer Delay before advancing 
+*
+* Tables
+*    These tables were pre-calculated to keep the 
+*    math processing and complexity to a minimum
+*
+
+**
+* Direction Table
+*    Defines the change in direction based
+*    on the key pressed, if there is a change.
+*      Key-> A B C D E F G H I J K L M 
+*            N O P Q R S T U V W X Y Z
+DIRTBL BYTE  0,0,0,0,0,0,0,0,2,0,0,0,0
+       BYTE  0,3,0,0,0,0,0,0,0,0,0,0,0 * UP
+       BYTE  1,1,1,1,1,1,1,1,2,1,1,1,1
+	   BYTE  1,3,1,1,1,1,1,1,1,1,1,1,1 * DOWN 
+       BYTE  1,2,2,2,2,2,2,2,2,2,2,2,2
+	   BYTE  2,2,2,0,2,2,2,2,2,2,2,2,2 * LEFT 
+       BYTE  1,3,3,3,3,3,3,3,3,3,3,3,3
+	   BYTE  3,3,3,0,3,3,3,3,3,3,3,3,3 * RIGHT
+
+** 
+* Body Direction Table
+*    Defines which body character to replace the 
+*    head with depending on the direction (row) 
+*    and the head character (column = headchr - 129)
+*
+BDTBL  BYTE  137,0,142,141
+       BYTE  0,137,139,140
+       BYTE  140,141,138,0
+       BYTE  139,142,0,138
+
+** 
+* Tail Direction Table
+*    Defines which tail character to replace the 
+*    body with depending on the previous tail 
+*    character (row = oldtail - 132) and the body 
+*    char it replaces (column = bodychr - 137)
+*
+TDTBL  BYTE  133,0,136,135,0,0
+       BYTE  134,0,0,0,135,136
+       BYTE  0,135,134,0,0,133
+       BYTE  0,136,0,134,133,0	   
+
+********************************************************
+*    MAIN PROGRAM                                      *
+********************************************************
+INIT   LWPI SUBWS           * Set up the location for the registers
+       LI   R10,STACK       * Setup stack pointer
+	   BL   @LSCS
+       BL   @VINIT
+
+GMSTRT BL   @CLEAR   	    * Clear the screen
+       LI   R5,3		    * Game will start with 3 lives
+	   CLR  R6			    * Start on level 0
+       MOVB @TRUE,@NEXTLF	* Cause  BL @PRANKY   
+
+NXTLF  
+*LI   R14,>FFFF       * Pause for a second to allow the keyboard
+KLOOP0 DEC  R14             * buffer to clear.
+       JNE  KLOOP0
+	   
+       MOVB @FALSE,@NLFLAG
+	   MOVB @FALSE,@TMFLAG
+
+	   LI   R0,23           * Start timer on row 24
+	   MOV  R0,@TIMROW    
+       MOV  @TMRDLY,@TIMDLY
+
+       CI   R5,0            * If no more lives, then game over.
+	   JEQ  GLOVER
+	   
+       CI   R6,3            * If no more levels, then game over.
+	   JEQ  GMOVER
+	   
+       CB   @NEXTLF,@TRUE
+	   JNE  NXTLF1
+
+       MOVB @FALSE,@NEXTLF	   
+       BL   @PRANKY
+
+NXTLF1 BL   @CLEAR   	    * Clear the screen
+       BL   @BORDER         * Draw border
+       BL   @DRWLVL         * Draw current level
+
+       LI   R14,>00A0       * Set initial delay
+	   MOV  R14,@DELAY
+
+	   LI   R4,10           * Start level with 10 apples to eat
+       
+	   MOVB @HEXFF,@KEY     * Init KEY to no keypress
+	   LI   R0,>5100        * Set the last key pressed to up
+	   MOV  R0,@LASTKY      * and direction up.
+	   
+	   CLR  @CURSIZ         * Clear out the current snake size
+       MOV  @SSNKSZ,@SNKSIZ * Reset the snake size to the starting size
+
+	   LI   R7,783          * Starting head position is below the screen
+	   LI   R8,783          * Starting tail position
+	   LI   R15,>0085
+ 	   MOV  R15,@OLDTLC     * Set the old tail char to up
+       
+       BL   @PLTAPL         * Draw the first apple
+
+       MOV  @STRPOS,R0      * Start Door position
+       LI   R1,>2000        * Open Door            
+       BL   @VSBW
+       
+GOTIME BL   @ADVTMR
+       BL   @MOVSNK
+
+       CB   @NEXTLF,@TRUE
+	   JNE  NXTLF2
+	   
+       LI   R1,SNDCSH  * Make crash sound
+       BL   @SOUND	   
+       	   
+NXTLF2 CB   @NLFLAG,@TRUE
+	   JEQ  NXTLF
+	   
+       MOV  @DELAY,R14
+	   MOVB @FALSE,@KEYPRS
+LOOP01 
+       BL   @UPDDIR         * Get the new direction	
+       DEC  R14
+       JNE  LOOP01  	   
+LOOP02 MOVB @FALSE,@KEYPRS 	   
+       CLR  R14
+       JMP  GOTIME
+
+GMOVER BL   @GMOMSG
+       BL   @PRANKY
+       JMP  GMSTRT
+	   
+GLOVER BL   @GMLMSG
+       BL   @PRANKY
+       JMP  GMSTRT
+
+*************************************************
+* SUB Advance Timer: Handles the timer movement *
+*                    and clearing the timer and *
+*                    adding more apples.        *
+*************************************************
+W32    DATA 32
+ADVTMR MOV  R11,*R10+     * Push the return address onto the stack
+  
+       CB   @TMFLAG,@TRUE * If TMFLAG is true, then reset timer
+	   JEQ  ADVTM1
+
+       MOV  @TIMDLY,R0    * If the Timer Delay is at zero,
+       CI   R0,0          * advance the timer, else dec
+	   JNE  ADVTM3        * the Timer Delay
+	   
+       MOV  @TMRDLY,@TIMDLY 
+ 
+       MOV  @TIMROW,R0
+       CI   R0,0
+	   JEQ  ADVTM0
+ 	   
+	   MOV  @TIMROW,R0    * Get the next timer row
+
+       MPY  @W32,R0       * Mult to get the leftmost pos on the row
+       MOV  R1,R0         * Move the answer into R0       
+       LI   R1,>9800      * Timer block character            
+       BL   @VSBW         * Draw the left timer block	   
+
+	   AI   R0,31         * Add to get the leftmost pos on the row 
+       BL   @VSBW         * Draw the right timer block	   
+
+       DEC  @TIMROW            
+	   JMP  ADVTM2
+	   
+ADVTM0 BL   @PLTAPL         * Add three apples and reset timer
+       BL   @PLTAPL
+       BL   @PLTAPL
+	   AI   R4,>403         * R4HB = Extra + 1, R4LB = Number left            
+       
+ADVTM1 BL   @CLRTMR 
+	   LI   R0,23           * Start timer on row 24
+	   MOV  R0,@TIMROW    
+	   
+ADVTM2 MOVB @FALSE,@TMFLAG
+       DECT R10           * Move the stack pointer down
+       MOV  *R10,R11      * Pop the return address off the stack
+       RT                 * RETURN
+
+ADVTM3 DEC  @TIMDLY
+       JMP  ADVTM2
+	   
+*************************************************
+* SUB Move Snake: Controls the snake movement.  *
+*************************************************
+MOVSNK MOV  R11,*R10+   * Push the return address onto the stack
+       
+       BL   @MOVHD
+       BL   @MOVBD
+	   
+	   MOV  @SNKSIZ,R1
+       C    @CURSIZ,R1  * Has snake reached its new size?
+       JNE  GROWSZ      * If not, skip the tail and inc size
+
+       MOVB @>83CE,@>83CE * If another sound is playing, skip this next one
+	   JNE  SS1
+	   
+	   LI   R1,SNDMOV   * Make standard move sound
+       BL   @SOUND	   
+ 
+SS1    BL   @MOVTL
+       JMP  MVSNK0
+	   
+GROWSZ MOVB @>83CE,@>83CE * If another sound is playing, skip this next one
+	   JNE  SS2
+
+       LI   R1,SNDGRW   * make growing sound
+       BL   @SOUND
+	   
+SS2	   INC  @CURSIZ 
+	   
+MVSNK0 DECT R10         * Move the stack pointer down
+       MOV  *R10,R11    * Pop the return address off the stack
+       RT               * RETURN
+
+*************************************************
+* SUB Move Head: Move and draw the snake's head.*
+*************************************************
+MOVHD  MOV  R11,*R10+   * Push the return address onto the stack
+
+       CLR  R1
+	   CLR  R14
+	   CLR  R15
+
+       MOV  R7,@OLDHDP  * Save the head position
+
+	   MOV  @OLDHDP,R15
+       CI   R15,783
+	   JEQ  MOVHD0
+	   
+       MOV  R7,R0       * Get the old head char
+	   BL   @VSBR       * Get the char at that position
+	   SWPB R1
+       MOV  R1,@OLDHDC
+	   
+MOVHD0 CB   @DIR,R14    * Is the direction up?
+       JEQ  HMVUP
+
+	   LI   R14,>0100
+	   CB   @DIR,R14    * Is the direction down?
+	   JEQ  HMVDWN
+
+	   LI   R14,>0200
+	   CB   @DIR,R14    * Is the direction left?
+       JEQ  HMVLFT
+
+HMVRGT INC  R7         * Else direction must be right
+       MOV  @HRGHT,R15
+       JMP  CHKOBS	   
+
+HMVLFT DEC  R7	   
+       MOV  @HLEFT,R15
+       JMP  CHKOBS	   
+
+HMVDWN AI   R7,32
+       MOV  @HDOWN,R15
+       JMP  CHKOBS	   
+
+HMVUP  AI   R7,-32
+       MOV  @HUP,R15
+	   
+CHKOBS 
+       MOV  R7,R0
+	   CLR  R1
+	   BL   @VSBR      * Get the char at that position
+	   SWPB R1
+	   
+       LI   R14,32     * Space char
+	   C    R1,R14     * Was it a space?
+	   JEQ  DRHEAD
+
+	   C    R1,@APPLE  * Was it an apple?
+	   JEQ  ATEAPP
+
+	   C    R1,@DOOR   * Was it a door?
+	   JEQ  NXTLVL
+
+KILLED DEC  R5
+       MOVB @TRUE,@NLFLAG
+	   MOVB @TRUE,@NEXTLF
+       JMP  DRHEAD       
+
+NXTLVL INC  R6
+       MOVB @TRUE,@NLFLAG
+       JMP  DRHEAD 
+	   
+ATEAPP LI   R1,SNDGLP  * make gulp sound
+       BL   @SOUND	          
+
+       MOVB @TRUE,@TMFLAG
+       CLR  R3
+       CB   @R4HB,@R3LB
+	   JEQ  DECAPP
+       SWPB R4
+	   DEC  R4
+	   SWPB R4
+DECAPP DEC  R4 
+       JEQ  OPENDR
+
+       CB   @R4HB,@R3LB
+	   JNE  DODLY
+	   
+DRAWAP BL   @PLTAPL    * Draw next apple
+DODLY  MOV  @DELAY,R14
+	   AI   R14,-5
+       MOV  R14,@DELAY
+	   MOV  @SNKSIZ,R14
+       AI   R14,8
+	   MOV  R14,@SNKSIZ	   
+
+DRHEAD MOV  R7,R0      * Current head position
+       MOV  R15,R1     * Head character            
+       SWPB R1
+       BL   @VSBW
+ 
+MOVHD1 DECT R10        * Move the stack pointer down
+       MOV  *R10,R11   * Pop the return address off the stack
+       RT         	   * RETURN
+
+OPENDR MOV  @ENDPOS,R0
+       LI   R1,>8000
+	   BL   @VSBW
+	   JMP  DRHEAD
+	   
+*************************************************
+* SUB Draw Body: Draws the snake's body.        *
+*************************************************
+W4     DATA  4
+B129   BYTE  129
+MOVBD  MOV  R11,*R10+     * Push the return address onto the stack
+
+	   MOV  @OLDHDP,R15
+       CI   R15,783
+	   JEQ  MOVBD0
+	   
+       MOV  @OLDHDC,R0    * Move old head char code to R0
+	   SB   @B129,@R0LB   * Sub to create column index
+	   
+	   CLR  R1            * Clear out R1
+       MOVB @DIR,@R1LB	  * Move direction to R1 Low Byte   
+       MPY  @W4,R1        * Mult to get the row index
+	   
+	   AB   @R0LB,@R2LB   * Add the column and row index      
+
+       CLR  R1
+       MOVB @BDTBL(R2),R1 * Get the body char.        
+	   MOV  @OLDHDP,R0
+
+DRBODY BL   @VSBW	   
+	   
+MOVBD0 DECT R10            * Move the stack pointer down
+       MOV  *R10,R11       * Pop the return address off the stack
+       RT                  * RETURN
+
+*************************************************
+* SUB Draw Tail: Draws the snake's tail.        *
+*************************************************
+B133   BYTE 133
+B137   BYTE 137
+W6     DATA 6
+MOVTL  MOV  R11,*R10+       * Push the return address onto the stack
+
+       CLR  R1
+	   CLR  R14
+	   CLR  R15
+
+       MOV  R8,@OLDTLP      * Save the tail position
+
+	   MOV  @OLDTLP,R15
+       CI   R15,783
+	   JEQ  MOVTL0
+	   
+       MOV  R8,R0           * Get the old Tail char
+	   BL   @VSBR           * Get the char at that position
+	   SWPB R1
+       MOV  R1,@OLDTLC
+
+MOVTL0 MOVB @OLDTLC+1,@TDIR
+       SB   @B133,@TDIR     * Sub to create column index
+       CB   @TDIR,R14       * Is the direction up?
+       JEQ  TMVUP
+
+	   LI   R14,>0100
+	   CB   @TDIR,R14       * Is the direction down?
+	   JEQ  TMVDWN
+
+	   LI   R14,>0200
+	   CB   @TDIR,R14       * Is the direction left?
+       JEQ  TMVLFT
+
+TMVRGT INC  R8              * Else direction must be right
+       JMP  MOVTL1	   
+
+TMVLFT DEC  R8	   
+       JMP  MOVTL1	   
+
+TMVDWN AI   R8,32
+       JMP  MOVTL1	   
+
+TMVUP  AI   R8,-32
+
+MOVTL1 CLR  R1
+       MOV  R8,R0           * Get the char at the new tail position
+	   BL   @VSBR           * Get the char at that position
+       MOV  R1,R0
+	   SWPB R0
+	   SB   @B137,@R0LB
+	   
+       CLR  R1              * Clear out R1
+       MOVB @TDIR,@R1LB	    * Move direction to R1 Low Byte   
+       MPY  @W6,R1          * Mult to get the row index
+	   
+	   AB   @R0LB,@R2LB     * Add the column and row index      
+
+       CLR  R1
+       MOVB @TDTBL(R2),R1   * Get the tail char.        
+
+DRTAIL MOV  R8,R0           * Current head position
+       BL   @VSBW
+
+CLROLD MOV  @OLDTLP,R0      * Clear the old tail
+       C    R0,@STRPOS      
+       JNE  MOVTL2            
+       LI   R1,>7F00        * Put a block if old tail at start
+       JMP  MOVTL3	   
+MOVTL2 LI   R1,>2000        * Else, put a space
+MOVTL3 BL   @VSBW
+	   
+       DECT R10             * Move the stack pointer down
+       MOV  *R10,R11        * Pop the return address off the stack
+       RT                   * RETURN
+
+*************************************************
+* SUB Draw Border: Draws the border and clear   * 
+*                  viewport.                    *
+*************************************************
+BORDER MOV  R11,*R10+   * Push the return address onto the stack
+       
+       LI   R0,32       * Start at Row 2.
+       LI   R1,>7F00    * Character 127
+       LI   R2,33       * Draw top Border plus start of next row
+	   LI   R3,1
+       BL   @VSMW                                                               
+       
+       LI   R9,21       * Do the next 21 rows
+BDRNR  LI   R1,>2000    * 30 Spaces
+       LI   R2,30       
+       BL   @VSMW                                                               
+	   LI   R1,>7F00    * Character 127
+       LI   R2,2        * 2 Blocks
+       BL   @VSMW                                                               
+	   DEC  R9
+	   JNE  BDRNR
+
+       LI   R0,737      * Finish at the bottom  
+       LI   R2,31
+       BL   @VSMW
+
+       DECT R10         * Move the stack pointer down
+       MOV  *R10,R11    * Pop the return address off the stack
+       RT               * RETURN
+
+*************************************************
+* SUB Clear Timer: Clears the Timer             * 
+*************************************************
+CLRTMR MOV  R11,*R10+   * Push the return address onto the stack
+       
+       LI   R0,32       
+       LI   R1,>7F00    
+       LI   R2,1        
+	   LI   R3,1
+       BL   @VSMW
+ 
+       LI   R0,63       
+       LI   R1,>7F00    
+       LI   R2,2        
+	   LI   R3,1
+       BL   @VSMW
+ 
+       LI   R9,21       * Do the next 21 rows
+CLRTM1 AI   R0,30
+	   LI   R1,>7F00    * Character 127
+       LI   R2,2        * 2 Blocks
+       BL   @VSMW                                                               
+	   DEC  R9
+	   JNE  CLRTM1
+
+       LI   R0,737      * Finish at the bottom  
+       LI   R2,31
+       BL   @VSMW
+
+       DECT R10         * Move the stack pointer down
+       MOV  *R10,R11    * Pop the return address off the stack
+       RT               * RETURN
+
+	   
+*************************************************
+* SUB Draw Level: Draws the next level          *
+*************************************************
+DRWLVL MOV  R11,*R10+        * Push the return address onto the stack
+
+       MOV  R6,R13           * Load R13 with the current level
+	   SLA  R13,1
+       MOV  @LEVELS(R13),R14 * Get the address of the current level
+       INCT R13
+	   MOV  @LEVELS(R13),R15 * Get the address of the next level
+DL00   MOV  *R14+,R0         
+	   MOV  *R14+,R1         
+       MOV  *R14+,R2         
+       MOV  *R14+,R3
+       BL   @VSMW            
+	   C    R14,R15          * If the we've reached the next level 
+	   JNE  DL00             * data, then we're done.
+
+       DECT R10         * Move the stack pointer down
+       MOV  *R10,R11    * Pop the return address off the stack
+       RT               * RETURN
+
+LEVELS DATA LVL01,LVL02,LVL03,LVLEND
+LVL01  DATA 393,>2000,1,1 
+LVL02  DATA 393,>7F00,14,1
+LVL03  DATA 393,>7F00,14,1
+       DATA 208,>7F00,14,32
+LVLEND DATA 0
+
+*************************************************
+* SUB Update Direction (UPDDIR)                 *
+*     Uses current direction and key pressed to *
+*     determine the new direction               *
+*************************************************
+W26    DATA  26
+B65    BYTE  65
+UPDDIR MOV  R11,*R10+         * Push the return address onto the stack
+       MOV  R0,@TEMP0        * Save R0
+       MOV  R1,@TEMP1        * Save R1
+       MOV  R2,@TEMP2        * Save R2
+
+       BL   @KSCAN            * Get the last key pressed
+	   
+	   CLR  R0                * Clear out R0
+       MOVB @LASTKY,@R0LB     * Move key to R0 Low Byte
+	   SB   @B65,@R0LB        * Sub to create column index
+	   
+	   CLR  R1                * Clear out R1
+       MOVB @DIR,@R1LB	      * Move direction to R1 Low Byte   
+       MPY  @W26,R1           * Mult to get the row index
+	   
+	   AB   @R0LB,@R2LB       * Add the column and row index
+	   
+	   CLR  R0
+	   MOVB @LASTKY,@R0LB
+	   CI   R0,65
+	   JLT  UPDD0
+       CI   R0,90      	   
+	   JGT  UPDD0
+
+       CLR  R0
+	   MOVB @DIRTBL(R2),@R0LB * Get the new direction. 
+       CB   @DIR,@R0LB
+	   JEQ  UPDD0
+       
+*       MOVB @>83CE,@>83CE * If another sound is playing, skip this next one
+*	    JNE  SS3
+	   
+	   LI   R1,SNDTRN         * make turning sound
+       BL   @SOUND	   
+
+SS3    CB   @KEYPRS,@TRUE     * Don't update the direction until
+	   JEQ  UPDD0             * KEYPRS is false again.
+	   
+	   MOVB @R0LB,@DIR
+ 	   MOVB @TRUE,@KEYPRS
+	   
+UPDD0  MOV  @TEMP0,R0        * Restore R0
+       MOV  @TEMP1,R1        * Restore R1
+       MOV  @TEMP2,R2        * Restore R2
+
+       DECT R10               * Move the stack pointer down
+       MOV  *R10,R11          * Pop the return address off the stack
+       RT                     * RETURN
+
+*************************************************
+* SUB CLEAR: Clears the screen.                 *
+*************************************************
+CLEAR  MOV  R11,*R10+   * Push the return address onto the stack
+ 
+       LI   R0,0        * Screen location 0.
+       LI   R1,>2000    * Write spaces.
+       LI   R2,768      * Write to all screen locations
+       LI   R3,1
+       BL   @VSMW       * Clear Screen
+ 
+       DECT R10         * Move the stack pointer down
+       MOV  *R10,R11    * Pop the return address off the stack
+       RT               * RETURN
+
+*************************************************
+* SUB DRWAPL: Draw an apple.                    *
+*************************************************
+
+PLTAPL                                                                           
+       MOV  R11,*R10+         * Push return address onto the stack              
+       MOV  R15,*R10+         * Save R15 since its destroyed                                                                         
+*      Get a random screen location                                             
+PLOT01 BL   @RANDNO           * Get a random number                      
+       MOV  @RAND16,R15       * Put it into R15
+	   LI   R13,672                                                              
+       CLR  R14               * Dividend will be R14,R15                          
+       DIV  R13,R14           * Make a number between 0 and 767                 
+
+*      Make sure there isn't something there already
+       AI   R15,64
+       MOV  R15,R0            * Get current character at R5
+       CLR  R1
+	   BL   @VSBR
+       CI   R1,>2000  	      * It needs to be a space							  
+	   JNE  PLOT01   
+      
+       MOV  R15,R0             * Move to R0 for the VDP routine                  
+       MOV  @APPLE,R1
+	   SWPB R1
+                                                                                
+       BL   @VSBW                                                               
+                                                                                
+       DECT R10               * Pop R15 off the stack                
+       MOV  *R10,R15                                                            
+       DECT R10               * Pop return address off the stack                
+       MOV  *R10,R11                                                            
+       RT                                                              
+
+********************
+* SOUND SUBROUTINE.
+********************
+SOUND  MOV  R11,*R10+
+
+       LIMI 0
+	   MOV  R1,@>83CC
+       MOVB @TRUE,@>83CE
+       SOCB @TRUE,@>83FD
+       LIMI 2
+	   
+	   DECT R10         * Move the stack pointer down
+       MOV  *R10,R11    * Pop the return address off the stack
+       RT               * RETURN
+
+************************************************************
+* ROUTINES TO REPLACE THE BLWP ROUTINES WHICH USE THE      *
+* GPL WORKSPACE.  THE REPLACEMENT IS DONE IN ORDER TO      *
+* KEEP THE VDP INTERRUPTS ACTIVE FOR THE TIMER AND SOUND   *
+* EXCEPT  WHEN THESE ROUTINES ARE CALLED.                  *
+************************************************************
+
+************************************************************
+* RANDOM NUMBER SUB: GENERATES AN 8 BIT RANDOM NUMBER AND  *
+*                    PLACES IT IN RANDOM.                  *
+************************************************************
+RANDNO
+       MOV  R4,@TEMP0        * Save R4
+       MOV  R5,@TEMP1        * Save R5
+	   
+       LIMI 0
+       LWPI GPLWS
+	   
+       LI   R4,28403         * A prime number to multiply by                   
+       MPY  @RAND16,R4       * Multiply by last random number                  
+       AI   R5,31643         * Add a prime number                              
+       MOV  @RSEED,R0                
+       ANDI R0,>000F          * Check if shift count is 0                       
+       JEQ  RAND01            * A 0 count means shift 16, which is a wash       
+       SRC  R5,0              * Mix up the number to break odd/even pattern     
+RAND01 MOV  R5,@RAND16        * Save this number for next time                  
+
+       LWPI SUBWS
+       LIMI 2
+	   
+	   MOV  @TEMP0,R4        * Restore R4
+       MOV  @TEMP1,R5        * Restore R5
+	   
+       RT     
+                                                                       
+*// RANDNO   	   
+	   
+************************************************************
+* Keyboard Scan - Put's pressed key in @KEY or 255 if no   *
+*                 key. If Key pressed, stores it in R3 High*
+************************************************************
+KSCAN  LIMI  0
+       LWPI  GPLWS          * LOAD GPL WORKSPACE.
+       MOV   R11,@VTMP0    * SAVE GPL RETURN ADDRESS.
+       BL    @>000E         * CONSOLE ADDRESS OF SCAN.
+       MOV   @VTMP0,R11    * RESTORE GPL RETURN ADDRESS.
+       LWPI  SUBWS          * RESTORE OWN WORKSPACE.
+       LIMI  2
+
+       CB    @KEY,@HEXFF    * CHECK IF KEY PRESSED.
+       JEQ   MSCAN0
+	   MOVB  @KEY,@LASTKY
+	   
+MSCAN0 RT
+	   
+************************************************************
+* VSBW   WRITE HIGH BYTE CONTAINED IN R1 TO VDP LOCATION   *
+*        CONTAINED IN R0.                                  *
+*        ALTERNATE USE WITH DATA STATEMENTS VIA VSBW1.     *
+************************************************************
+HEX40  BYTE  >40
+ 
+VSBW   MOV   R1,@VTMP1  * ENTRY WITHOUT USING
+       MOV   R0,@VTMP0  * DATA STATEMENTS.
+       JMP   VSBW3
+ 
+VSBW1  MOV   *R11+,@VTMP1   * ENTRIES USING DATA STATEMENTS.
+VSBW2  MOV   *R11+,@VTMP0
+ 
+VSBW3  LIMI   0
+       AB    @HEX40,@VTMP0
+       MOVB  @VTMP0+1,@>8C02
+       MOVB  @VTMP0,@>8C02
+       MOVB  @VTMP1,@>8C00
+       LIMI  2
+       RT
+	   
+************************************************************
+* VSBR   READ INTO HIGH BYTE OF R1 FROM VDP LOCATION       *
+*        CONTAINED IN R0.                                  *
+************************************************************
+VSBR   LIMI  0
+       MOV   R0,@VTMP0
+       MOVB  @VTMP0+1,@>8C02
+       MOVB  @VTMP0,@>8C02
+       MOVB  @>8800,R1
+       LIMI  2
+       RT
+
+************************************************************
+* VMBW   WRITE THE NUMBER OF BYTES CONTAINED IN R2 FROM    *
+*        THE ADDRESS CONTAINED IN R1 TO THE SCREEN LOCATION*
+*        CONTAINED IN R0.                                  *
+************************************************************
+VMBW   MOV   R0,@VTMP0       * ENTRY NOT USING
+       MOV   R1,@VTMP1       * DATA STATEMENTS.
+       MOV   R2,@VTMP2       *
+       JMP   VMBW2            *
+ 
+VMBW0  MOV   *R11+,@VTMP2    * ENTRIES USING DATA STATEMENTS.
+       MOV   *R11+,@VTMP1    *
+       MOV   *R11+,@VTMP0    *
+       MOV   @VTMP1,R1       *
+ 
+VMBW2  LIMI  0
+       AB    @HEX40,@VTMP0
+VMBW3  MOVB  @VTMP0+1,@>8C02
+       MOVB  @VTMP0,@>8C02
+       INC   @VTMP0
+       MOVB  *R1+,@>8C00
+       DEC   @VTMP2
+       JNE   VMBW3
+       LIMI  2
+ 
+       MOV   @VTMP0,R0
+       MOV   @VTMP1,R1
+       MOV   @VTMP2,R2
+       ANDI R0,>3FFF	   
+
+       RT
+	   
+************************************************************
+* VSMW   WRITE THE HIGH BYTE IN R1 THE NUMBER OF TIMES     * 
+*        IN R2 TO THE SCREEN LOCATION AT R0.               *
+*        R3 is the location increment 
+************************************************************
+VSMW   MOV   R0,@VTMP0       * ENTRY NOT USING
+       MOV   R1,@VTMP1       * DATA STATEMENTS.
+       MOV   R2,@VTMP2       *
+ 
+       LIMI  0
+       AB    @HEX40,@VTMP0
+VSMW0  MOVB  @VTMP0+1,@>8C02
+       MOVB  @VTMP0,@>8C02
+       A     R3,@VTMP0
+       MOVB  @VTMP1,@>8C00
+       DEC   @VTMP2
+       JNE   VSMW0
+       LIMI  2
+ 
+       MOV   @VTMP0,R0
+       MOV   @VTMP1,R1
+       MOV   @VTMP2,R2
+       ANDI R0,>3FFF	   
+
+       RT
+
+*********************************************************************           
+*                                                                               
+* Load a nice character set                                                     
+*                                                                               
+LSCS                                                                            
+       MOV  R11,*R10+         * Push return address onto the stack              
+                                                                                
+*       LI   R0,>800          * Start at first char position                   
+       LI   R0,>900          * Start at the space                   
+       LI   R1,SCS1                                                             
+       LI   R2,SCS1E-SCS1                                                      
+       BL   @VMBW                                                               
+                                                                                
+       DECT R10               * Pop return address off the stack                
+       MOV  *R10,R11                                                            
+       B    *R11                                                                
+*// LSCS                                                                        
+                                                                                
+                                                                                
+*********************************************************************           
+
+*****************************************************
+* Load Characters and Colors                        *
+*****************************************************
+*--------------------
+* CHARACTERS USED
+*--------------------
+* ASC SET Description
+* --- --- -----------
+* 127  16 Block
+* 128  17 Door
+* 129     Head Up
+* 130     Head Down
+* 131     Head Left
+* 132     Head Right
+* 133     Tail Up
+* 134     Tail Down
+* 135     Tail Left
+* 136  18 Tail Right
+* 137     Body Up<->Down
+* 138     Body Left<->Right
+* 139     Body Left->Down or Up->Right
+* 140     Body Right->Down or Up->Left
+* 141     Body Right->Up or Down->Left
+* 142     Body Left->Up or Down->Right
+* 144  19 Apple
+* 152  20 Timer Block
+*-------------------
+* COLORS USED
+*-------------------
+* SET   COLOR
+* ---   -----
+* 1-16  >F0    White on Black
+* 17-18 >20    Medium Green on Black
+* 19    >80    Medium Red on Black
+* 20    >A0    Light Yellow on Black
+
+*      MOVE 16 BYTES FROM ROM(#C128) TO CHAR(144)
+VINIT  MOV  R11,*R10+           * Push the return address onto the stack
+
+       BL   @VMBW0
+       DATA 16
+       DATA BLOCK+2
+       DATA >BF8     * 127 >7F
+
+       BL   @VMBW0
+       DATA 16
+       DATA DOOR+2
+       DATA >C00     * 128 >80
+
+       BL   @VMBW0
+       DATA 16
+       DATA HUP+2
+       DATA >C08     * 129 >81
+
+       BL   @VMBW0
+       DATA 16
+       DATA HDOWN+2
+       DATA >C10     * 130 >82
+
+       BL   @VMBW0
+       DATA 16
+       DATA HLEFT+2
+       DATA >C18     * 131 >83
+
+       BL   @VMBW0
+       DATA 16
+       DATA HRGHT+2
+       DATA >C20     * 132 >84
+
+       BL   @VMBW0
+       DATA 16
+       DATA TUP+2
+       DATA >C28     * 133 >85
+
+       BL   @VMBW0
+       DATA 16
+       DATA TDOWN+2
+       DATA >C30     * 134 >86
+
+       BL   @VMBW0
+       DATA 16
+       DATA TLEFT+2
+       DATA >C38     * 135 >87
+
+       BL   @VMBW0
+       DATA 16
+       DATA TRGHT+2
+       DATA >C40     * 136 >88
+
+       BL   @VMBW0
+       DATA 16
+       DATA BUD+2
+       DATA >C48     * 137 >89
+
+       BL   @VMBW0
+       DATA 16
+       DATA BLR+2
+       DATA >C50     * 138 >8A
+
+       BL   @VMBW0
+       DATA 16
+       DATA LDUR+2
+       DATA >C58     * 139 >8B
+
+       BL   @VMBW0
+       DATA 16
+       DATA RDUL+2
+       DATA >C60     * 140 >8C
+
+       BL   @VMBW0
+       DATA 16
+       DATA RUDL+2
+       DATA >C68     * 141 >8D
+
+       BL   @VMBW0
+       DATA 16
+       DATA LUDR+2
+       DATA >C70     * 142 >8E
+
+       BL   @VMBW0
+       DATA 16
+       DATA APPLE+2
+       DATA >C80     * 144 >90
+
+       BL   @VMBW0
+       DATA 16
+       DATA TIMER+2
+       DATA >CC0     * 152 >98
+
+*      Load all of the color sets
+       BL   @VMBW0
+       DATA 32
+       DATA COLORS
+       DATA COLTBL
+	   
+*      Load Sounds
+       BL   @VMBW0
+       DATA 113
+*       DATA 182
+       DATA SOUNDS
+       DATA >1000	   
+	   
+       DECT R10               * Move the stack pointer down
+       MOV  *R10,R11          * Pop the return address off the stack
+       RT                     * RETURN
+	   
+BLOCK  DATA 127
+       DATA >FFFF,>FFFF,>FFFF,>FFFF                                             
+DOOR   DATA 128
+       DATA >0000,>0000,>0000,>0000                                             
+
+HUP    DATA 129
+       DATA >1824,>425A,>4242,>4242                                             
+HDOWN  DATA 130
+       DATA >4242,>4242,>5A42,>2418                                             
+HLEFT  DATA 131
+       DATA >003F,>4090,>9040,>3F00                                             
+HRGHT  DATA 132
+       DATA >00FC,>0209,>0902,>FC00                                             
+
+TUP    DATA 133
+       DATA >4242,>2418,>1818,>1818                                             
+TDOWN  DATA 134
+       DATA >1818,>1818,>1824,>4242                                             
+TLEFT  DATA 135
+       DATA >00C0,>201F,>1F20,>C000                                             
+TRGHT  DATA 136
+       DATA >0003,>04F8,>F804,>0300                                             
+
+BUD    DATA 137
+       DATA >4242,>4242,>4242,>4242                                             
+BLR    DATA 138
+       DATA >00FF,>0000,>0000,>FF00                                             
+LDUR   DATA 139
+       DATA >001F,>2040,>4040,>4342                                             
+RDUL   DATA 140
+       DATA >00F8,>0402,>0202,>C242                                             
+RUDL   DATA 141
+       DATA >42C2,>0202,>0204,>F800                                             
+LUDR   DATA 142
+       DATA >4243,>4040,>4020,>1F00                                             
+
+APPLE  DATA 144
+       DATA >0872,>DFBF,>FFFF,>7E66                                             
+TIMER  DATA 152
+       DATA >AA55,>AA55,>AA55,>AA55                                             
+
+COLORS DATA >F0F0,>F0F0    * Sets 1-4   (0-31)
+       DATA >F0F0,>F0F0    * Sets 5-8   (32-63)
+       DATA >F0F0,>F0F0    * Sets 9-12  (64-95)
+       DATA >F0F0,>F0F0    * Sets 13-16 (96-127)
+       DATA >3030,>80B0    * Sets 17-20 (128-159)
+       DATA >F0F0,>F0F0    * Sets 21-24 (160-191)
+       DATA >F0F0,>F0F0    * Sets 25-28 (192-223)
+       DATA >F0F0,>F0F0    * Sets 29-32 (224-255)
+
+*------------------
+* Move Sound
+*------------------
+*>1000
+SOUNDS BYTE 3,>89,>3F,>92,2
+       BYTE 4,>9F,>BF,>DF,>FF,0	   
+* 11 Bytes
+* CALL SOUND(33,110,0)
+
+*------------------
+* Turn sound
+*------------------
+*>100B
+       BYTE 3,>80,>0E,>92,2
+       BYTE 4,>9F,>BF,>DF,>FF,0
+* 11 Bytes	   
+* CALL SOUND(33,500,0)
+
+*------------------
+* Grow sound
+*------------------
+*>1016
+        BYTE 3,>80,>14,>95,2
+        BYTE 4,>9F,>BF,>DF,>FF,0
+* 11 Bytes	   
+* CALL SOUND(33,350,0)
+
+*------------------
+* Crash sound
+*------------------
+*>1021
+       BYTE 3,>9F,>E4,>F2,5
+       BYTE 2,>E4,>F0,12
+       BYTE 2,>E4,>F2,10
+       BYTE 2,>E4,>F4,8
+       BYTE 2,>E4,>F6,6
+       BYTE 2,>E4,>F8,4
+       BYTE 2,>E4,>FA,2
+       BYTE 1,>FF,0
+* 32 Bytes	   
+
+*------------------
+* Gulp sound
+*------------------
+*>1041
+       BYTE 4,>9F,>BF,>DF,>FF,1
+       BYTE 3,>81,>07,>90,3
+       BYTE 2,>8B,>06,2
+       BYTE 2,>8F,>05,2
+       BYTE 1,>9F,4
+       BYTE 3,>89,>38,>01,3
+       BYTE 3,>8B,>38,>02,2
+       BYTE 3,>8D,>38,>03,2
+       BYTE 3,>8F,>38,>04,1
+       BYTE 4,>9F,>BF,>DF,>FF,0
+
+       BYTE 2,>83,>39,1
+       BYTE 2,>87,>39,1
+       BYTE 2,>8B,>39,1
+       BYTE 2,>8F,>39,1
+       BYTE 2,>83,>3A,1
+       BYTE 2,>87,>3A,1
+       BYTE 2,>8B,>3A,1
+       BYTE 2,>8F,>3A,1
+       BYTE 2,>83,>3B,1
+       BYTE 2,>87,>3B,1
+       BYTE 2,>8B,>3B,1
+       BYTE 2,>8F,>3B,1
+       BYTE 2,>83,>3C,1
+       BYTE 2,>87,>3C,1
+       BYTE 2,>8B,>3C,1
+       BYTE 2,>87,>3C,1
+       BYTE 3,>8F,>38,>90,3
+       BYTE 4,>9F,>BF,>DF,>FF,0
+* 117 Bytes
+
+*****************************************************
+* Press any key                                     *
+*****************************************************
+PRANKY MOV  R11,*R10+    * Push the return address onto the stack
+
+       BL   @VMBW0
+       DATA 28
+       DATA PAK1
+       DATA 674
+ 
+       LI   R14,>FFFF    * Pause for a second to allow the keyboard
+KLOOP1 DEC  R14          * buffer to clear.
+       JNE  KLOOP1
+	   
+KEYA1  MOVB @HEXFF,@KEY
+       BL   @KSCAN       * WAIT FOR KEY DEPRESS.
+       CB   @KEY,@HEXFF
+       JEQ  KEYA1
+ 
+       DECT R10          * Move the stack pointer down
+       MOV  *R10,R11     * Pop the return address off the stack
+       RT                * RETURN
+	   
+PAK1   TEXT 'Press any key to continue...'
+
+*****************************************************
+* Game Over                                         *
+*****************************************************
+GMOMSG MOV  R11,*R10+    * Push the return address onto the stack
+
+       BL   @VMBW0
+       DATA 18
+       DATA GOMSG1
+       DATA 168
+ 
+       BL   @VMBW0
+       DATA 20
+       DATA GOMSG2
+       DATA 199
+ 
+       BL   @VMBW0
+       DATA 20
+       DATA GOMSG3
+       DATA 231
+ 
+       BL   @VMBW0
+       DATA 20
+       DATA GOMSG4
+       DATA 263
+ 
+       BL   @VMBW0
+       DATA 18
+       DATA GOMSG5
+       DATA 296
+ 
+       DECT R10          * Move the stack pointer down
+       MOV  *R10,R11     * Pop the return address off the stack
+       RT                * RETURN
+	   
+*      -------------
+*      GAME OVER
+*      -------------
+GOMSG1 TEXT '******************'
+GOMSG2 TEXT '* Congratulations! *'
+GOMSG3 TEXT '*  You Completed   *'							
+GOMSG4 TEXT '*   Every Level!   *'
+GOMSG5 TEXT '******************'
+
+*****************************************************
+* Game Over                                         *
+*****************************************************
+GMLMSG MOV  R11,*R10+    * Push the return address onto the stack
+
+       BL   @VMBW0
+       DATA 16
+       DATA GOLIV1
+       DATA 168
+ 
+       BL   @VMBW0
+       DATA 18
+       DATA GOLIV2
+       DATA 199
+ 
+       BL   @VMBW0
+       DATA 18
+       DATA GOLIV3
+       DATA 231
+ 
+       BL   @VMBW0
+       DATA 18
+       DATA GOLIV4
+       DATA 263
+ 
+       BL   @VMBW0
+       DATA 16
+       DATA GOLIV5
+       DATA 296
+ 
+       DECT R10          * Move the stack pointer down
+       MOV  *R10,R11     * Pop the return address off the stack
+       RT                * RETURN
+	   
+*      -------------
+*      GAME OVER
+*      -------------
+GOLIV1 TEXT '****************'
+GOLIV2 TEXT '*  You used all  *'
+GOLIV3 TEXT '* of your lives. *'							
+GOLIV4 TEXT '*   GAME OVER.   *'
+GOLIV5 TEXT '****************'
+
+**                                                                              
+* Standard Character Set 1 - "Space" 8x8                                        
+*                                                                               
+SCS1                                                                            
+       DATA >0000,>0000,>0000,>0000    ;
+       DATA >0010,>1010,>1010,>0010    ;
+       DATA >0028,>2828,>0000,>0000    ;
+       DATA >0028,>287C,>287C,>2828    ;
+       DATA >0038,>5450,>3814,>5438    ;
+       DATA >0060,>6408,>1020,>4C0C    ;
+       DATA >0020,>5050,>2054,>4834    ;
+       DATA >0008,>0810,>0000,>0000    ;
+       DATA >0008,>1020,>2020,>1008    ;
+       DATA >0020,>1008,>0808,>1020    ;
+       DATA >0000,>2810,>7C10,>2800    ;
+       DATA >0000,>1010,>7C10,>1000    ;
+       DATA >0000,>0000,>0030,>1020    ;
+       DATA >0000,>0000,>7C00,>0000    ;
+       DATA >0000,>0000,>0000,>3030    ;
+       DATA >0000,>0408,>1020,>4000    ;
+       DATA >0038,>4444,>4444,>4438    ;
+       DATA >0010,>3010,>1010,>1038    ;
+       DATA >0038,>4404,>0810,>207C    ;
+       DATA >0038,>4404,>1804,>4438    ;
+       DATA >0008,>1828,>487C,>0808    ;
+       DATA >007C,>4078,>0404,>4438    ;
+       DATA >0018,>2040,>7844,>4438    ;
+       DATA >007C,>0408,>1020,>2020    ;
+       DATA >0038,>4444,>3844,>4438    ;
+       DATA >0038,>4444,>3C04,>0830    ;
+       DATA >0000,>3030,>0030,>3000    ;
+       DATA >0000,>3030,>0030,>1020    ;
+       DATA >0008,>1020,>4020,>1008    ;
+       DATA >0000,>007C,>007C,>0000    ;
+       DATA >0020,>1008,>0408,>1020    ;
+       DATA >0038,>4404,>0810,>0010    ;
+       DATA >0038,>445C,>545C,>4038    ;
+       DATA >0038,>4444,>7C44,>4444    ;
+       DATA >0078,>2424,>3824,>2478    ;
+       DATA >0038,>4440,>4040,>4438    ;
+       DATA >0078,>2424,>2424,>2478    ;
+       DATA >007C,>4040,>7840,>407C    ;
+       DATA >007C,>4040,>7840,>4040    ;
+       DATA >003C,>4040,>5C44,>4438    ;
+       DATA >0044,>4444,>7C44,>4444    ;
+       DATA >0038,>1010,>1010,>1038    ;
+       DATA >0004,>0404,>0404,>4438    ;
+       DATA >0044,>4850,>6050,>4844    ;
+       DATA >0040,>4040,>4040,>407C    ;
+       DATA >0044,>6C54,>5444,>4444    ;
+       DATA >0044,>6464,>544C,>4C44    ;
+       DATA >007C,>4444,>4444,>447C    ;
+       DATA >0078,>4444,>7840,>4040    ;
+       DATA >0038,>4444,>4454,>4834    ;
+       DATA >0078,>4444,>7850,>4844    ;
+       DATA >0038,>4440,>3804,>4438    ;
+       DATA >007C,>1010,>1010,>1010    ;
+       DATA >0044,>4444,>4444,>4438    ;
+       DATA >0044,>4444,>2828,>1010    ;
+       DATA >0044,>4444,>5454,>5428    ;
+       DATA >0044,>4428,>1028,>4444    ;
+       DATA >0044,>4428,>1010,>1010    ;
+       DATA >007C,>0408,>1020,>407C    ;
+       DATA >0038,>2020,>2020,>2038    ;
+       DATA >0000,>4020,>1008,>0400    ;
+       DATA >0038,>0808,>0808,>0838    ;
+       DATA >0000,>1028,>4400,>0000    ;
+       DATA >0000,>0000,>0000,>007C    ;
+       DATA >0000,>2010,>0800,>0000    ;
+       DATA >0000,>0038,>447C,>4444    ;
+       DATA >0000,>0078,>2438,>2478    ;
+       DATA >0000,>003C,>4040,>403C    ;
+       DATA >0000,>0078,>2424,>2478    ;
+       DATA >0000,>007C,>4078,>407C    ;
+       DATA >0000,>007C,>4078,>4040    ;
+       DATA >0000,>003C,>405C,>4438    ;
+       DATA >0000,>0044,>447C,>4444    ;
+       DATA >0000,>0038,>1010,>1038    ;
+       DATA >0000,>0008,>0808,>4830    ;
+       DATA >0000,>0024,>2830,>2824    ;
+       DATA >0000,>0040,>4040,>407C    ;
+       DATA >0000,>0044,>6C54,>4444    ;
+       DATA >0000,>0044,>6454,>4C44    ;
+       DATA >0000,>007C,>4444,>447C    ;
+       DATA >0000,>0078,>4478,>4040    ;
+       DATA >0000,>0038,>4454,>4834    ;
+       DATA >0000,>0078,>4478,>4844    ;
+       DATA >0000,>003C,>4038,>0478    ;
+       DATA >0000,>007C,>1010,>1010    ;
+       DATA >0000,>0044,>4444,>4438    ;
+       DATA >0000,>0044,>4428,>2810    ;
+       DATA >0000,>0044,>4454,>5428    ;
+       DATA >0000,>0044,>2810,>2844    ;
+       DATA >0000,>0044,>2810,>1010    ;
+       DATA >0000,>007C,>0810,>207C    ;
+       DATA >0018,>2020,>4020,>2018    ;
+       DATA >0010,>1010,>0010,>1010    ;
+       DATA >0030,>0808,>0408,>0830    ;
+       DATA >0000,>2054,>0800,>0000    ;                         
+SCS1E 
+LC1
+       DATA >0000,>0038,>043C,>643C       ; a - 97  >61
+       DATA >0040,>4040,>7844,>4478       ; b - 98  >62
+       DATA >0000,>001C,>2020,>201C       ; c - 99  >63
+       DATA >0004,>0404,>3C44,>443C       ; d - 100 >64
+       DATA >0000,>0038,>4478,>4030       ; e - 101 >65
+       DATA >0018,>2420,>7020,>2020       ; f - 102 >66
+       DATA >0000,>0038,>4430,>0438       ; g - 103 >67
+       DATA >0040,>4040,>7844,>4444       ; h - 104 >68
+       DATA >0010,>0010,>1010,>1010       ; i - 105 >69
+       DATA >0004,>0004,>0404,>2418       ; j - 106 >6A
+       DATA >0020,>2024,>2830,>2824       ; k - 107 >6B
+       DATA >0010,>1010,>1010,>1010       ; l - 108 >6C
+       DATA >0000,>0068,>5454,>4444       ; m - 109 >6D
+       DATA >0000,>0058,>6444,>4444       ; n - 110 >6E
+       DATA >0000,>0038,>4444,>4438       ; o - 111 >6F
+       DATA >0000,>0078,>4478,>4040       ; p - 112 >70
+       DATA >0000,>0030,>4430,>0404       ; q - 113 >71
+       DATA >0000,>0058,>6440,>4040       ; r - 114 >72
+       DATA >0000,>0030,>4038,>0478       ; s - 115 >73
+       DATA >0010,>1038,>1010,>1000       ; t - 116 >74
+       DATA >0000,>0044,>4444,>4438       ; u - 117 >75
+       DATA >0000,>0044,>4428,>2810       ; v - 118 >76
+       DATA >0000,>0044,>4454,>5428       ; w - 119 >77
+       DATA >0000,>0044,>2810,>2844       ; x - 120 >78
+       DATA >0000,>0044,>443C,>0438       ; y - 121 >79
+       DATA >0000,>003C,>0408,>103C       ; z - 122 >7A
+LC1E     
+                                                                     
+	   EVEN
+SLAST  END   START
+
+
+*********************
+* Bug List
+*********************
+* 
+* 1. Close door when timer runs out
+* 2. Messed up when snakes eats apple while the door is open
+* 3. Messed up when snake hits its tail.

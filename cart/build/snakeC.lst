@@ -1,0 +1,2800 @@
+Asm994a TMS99000 Assembler - v3.010
+
+                * Asm994a Generated Register Equates
+                *
+      0000 0000 R0      EQU     0 
+      0000 0001 R1      EQU     1 
+      0000 0002 R2      EQU     2 
+      0000 0003 R3      EQU     3 
+      0000 0004 R4      EQU     4 
+      0000 0005 R5      EQU     5 
+      0000 0006 R6      EQU     6 
+      0000 0007 R7      EQU     7 
+      0000 0008 R8      EQU     8 
+      0000 0009 R9      EQU     9 
+      0000 000A R10     EQU     10
+      0000 000B R11     EQU     11
+      0000 000C R12     EQU     12
+      0000 000D R13     EQU     13
+      0000 000E R14     EQU     14
+      0000 000F R15     EQU     15
+                *
+   1  0000 6000        DEF  STDHDR
+   2            **
+   3            * Set Up Cartridge
+   4            *
+   5            * Always mapped to the cartidge address range
+   6                   AORG >6000
+   7            
+   8  6000 AA   STDHDR BYTE >AA               * Indicates a standard header
+   9  6001 01          BYTE >01               * Version number
+  10  6002 01          BYTE >01               * Number of programs (optional)
+  11  6003 00          BYTE >00               * Not used
+  12  6004 0000        DATA >0000             * Pointer to power-up list (can't use in cartridge ROM)
+  13  6006 600E        DATA PROG              * Pointer to program list
+  14  6008 0000        DATA >0000             * Pointer to DSR list
+  15  600A 0000        DATA >0000             * Pointer to subprogram list
+  16  600C 0000        DATA >0000             * Pointer to ISR list
+  17  600E 0000 PROG   DATA >0000             * No next menu item
+  18  6010 6024        DATA MAIN              * Program start address for this menu item
+  19  6012 08          BYTE 8                 * Length of text for menu screen
+  20  6013 5449        TEXT 'TI SNAKE'
+  20  6015 2053  
+  20  6017 4E41  
+  20  6019 4B45  
+  21  601B 0000        EVEN
+  22            
+  23  601C 00E0 REGLD  BYTE >00,>E0,00,>0E,>01,>06,>00,>00  * REGISTER VALUES
+  23  601E 000E  
+  23  6020 0106  
+  23  6022 0000  
+  24  6024 0201 MAIN   LI   R1,REGLD   * SET BYTE ADDRESS
+  24  6026 601C  
+  25  6028 0202        LI   R2,>7F00   * REG WRITE CONSTANT -1
+  25  602A 7F00  
+  26  602C 06C2 LOOP   SWPB R2         * MOVE HIGH TO LOW/LOW TO HIGH
+  27  602E 0582        INC  R2         * SET REGISTER NUMBER
+  28  6030 D0B1        MOVB *R1+,R2    * SET VALUE FOR OUTPUT
+  29  6032 D802        MOVB R2,@>8C02  * WRITE VALUE
+  29  6034 8C02  
+  30  6036 06C2        SWPB R2         * MOVE HIGH TO LOW/LOW TO HIGH
+  31  6038 D802        MOVB R2,@>8C02  * WRITE REGISTER NUMBER
+  31  603A 8C02  
+  32  603C 0282        CI   R2,>8700   * CHECK FOR LAST REGISTER
+  32  603E 8700  
+  33  6040 1AF5        JL   LOOP       * GO BACK FOR NEXT REGISTER & VALUE
+  34  6042 04C1        CLR  R1         * TURN OFF SPRITE MOTION.
+  35  6044 D801        MOVB R1,@>837A  *
+  35  6046 837A  
+  36  6048 0460        B    @INIT      * GOTO "9900 CODE" PROGRAM               
+  36  604A 60E8  
+  37            ****************************************************
+  38                            
+  39            *-------------------
+  40            * REGISTER USAGE.
+  41            *-------------------
+  42            * R0-R2  Used to read and write to the screen as well as temps
+  43            * R3     
+  44            * R4LB   Holds apples left
+  45            * R4HB   Extra Apples
+  46            * R5     Holds lives left
+  47            * R6     Holds current level
+  48            * R7     Holds head's current position
+  49            * R8     Holds tail's current position
+  50            * R9     General Purpose
+  51            * R10    Used as a stack pointer
+  52            * R11    USED FOR RETURN ADDRESS OF SUBROUTINES.
+  53            * R12    
+  54            * R13    
+  55            * R14    
+  56            * R15    
+  57            
+  58            **********************************************
+  59            *                        EQUATES             *
+  60            *                                            *
+  61            **********************************************
+  62  0000 8300 SUBWS  EQU >8300        * MY OWN WORKSPACE.
+  63  0000 8300 R0HB   EQU SUBWS        * REGISTER 0 HIGH BYTE.
+  64  0000 8301 R0LB   EQU SUBWS+1      * REGISTER 0 LOW BYTE.
+  65  0000 8302 R1HB   EQU SUBWS+2      * REGISTER 1 HIGH BYTE.
+  66  0000 8303 R1LB   EQU SUBWS+3      * REGISTER 1 LOW BYTE.
+  67  0000 8304 R2HB   EQU SUBWS+4      * REGISTER 2 HIGH BYTE.
+  68  0000 8305 R2LB   EQU SUBWS+5      * REGISTER 2 LOW BYTE.
+  69  0000 8306 R3HB   EQU SUBWS+6      * REGISTER 3 HIGH BYTE.
+  70  0000 8307 R3LB   EQU SUBWS+7      * REGISTER 3 LOW BYTE.
+  71  0000 8308 R4HB   EQU SUBWS+8      * REGISTER 4 HIGH BYTE.
+  72  0000 8309 R4LB   EQU SUBWS+9      * REGISTER 4 LOW BYTE.
+  73            
+  74  0000 8320 ASCDEC EQU >8320        * 3 Char Base10 of ASCII Char
+  75  0000 8323 ASCHEX EQU >8323        * 2 Char Base16 of ASCII Char
+  76  0000 8324 TEMP0  EQU >8324        * TEMP REGISTER R0(2BYTES).
+  77  0000 8326 TEMP1  EQU >8326        * TEMP REGISTER R1(2BYTES).
+  78  0000 8328 TEMP2  EQU >8328        * TEMP REGISTER R2(2BYTES).
+  79  0000 832A TEMP3  EQU >832A        * TEMP REGISTER R3(2BYTES).
+  80  0000 832C VTMP0  EQU >832C        * VDP TEMP REGISTER R0(2BYTES).
+  81  0000 832E VTMP1  EQU >832E        * VDP TEMP REGISTER R1(2BYTES).
+  82  0000 8330 VTMP2  EQU >8330        * VDP TEMP REGISTER R2(2BYTES).
+  83  0000 8332 STACK  EQU >8332        * Stack for Return Addresses.
+  84            *      EQU >8334        *
+  85            *      EQU >8336        *
+  86            *      EQU >8338        *
+  87            *      EQU >833A        *
+  88            *      EQU >833C        *
+  89            *      EQU >833E        *
+  90  0000 8340 RAND16 EQU >8340        * 16 BIT RANDOM NUMBER.
+  91  0000 8341 RANDOM EQU >8341        * 8 BIT RANDOM NUMBER.
+  92  0000 8342 LASTKY EQU >8342
+  93  0000 8343 DIR    EQU >8343
+  94  0000 8344 TDIR   EQU >8344
+  95  0000 8345 KEYPRS EQU >8345
+  96  0000 8346 SNKSIZ EQU >8346
+  97  0000 8348 CURSIZ EQU >8348
+  98  0000 834A OLDHDC EQU >834A
+  99  0000 834C OLDHDP EQU >834C
+ 100  0000 834E OLDTLC EQU >834E
+ 101  0000 8350 OLDTLP EQU >8350
+ 102  0000 8352 NEXTLF EQU >8352
+ 103  0000 8353 NLFLAG EQU >8353
+ 104  0000 8354 TMFLAG EQU >8354
+ 105  0000 8356 TIMROW EQU >8356
+ 106  0000 8358 TIMDLY EQU >8358
+ 107  0000 835A DELAY  EQU >835A
+ 108            *      EQU >835C
+ 109            
+ 110            * Used by GPL
+ 111            *      EQU >8370        * USED BY GPL.
+ 112  0000 8375 KEY    EQU >8375        * ASCII VALUE OF KEY PRESSED.
+ 113  0000 8379 RSEED  EQU >8379        * Used by random number generator
+ 114  0000 837C STATUS EQU >837C        * GPL STATUS REGISTER.
+ 115            *      EQU >8381        *
+ 116            
+ 117  0000 83E0 GPLWS  EQU >83E0        * GPL INTERPRETER GENERAL WORKSPACE.
+ 118            *      EQU >8420        * Last byte of scratch ram.
+ 119            
+ 120  0000 0380 COLTBL EQU >380         * GPL COLOR TABLE BEGINS AT >380.
+ 121            
+ 122            *
+ 123            * SOUND EQUATES.
+ 124            *
+ 125  0000 1000 SNDMOV EQU >1000        * BEGIN MOVE SOUND LIST.
+ 126  0000 100B SNDTRN EQU >100B        * BEGIN TURN SOUND LIST.
+ 127  0000 1016 SNDGRW EQU >1016        * BEGIN GROW SOUND LIST.
+ 128  0000 1021 SNDCSH EQU >1021        * BEGIN CRASH SOUND LIST.
+ 129  0000 1041 SNDGLP EQU >1041        * BEGIN GULP SOUND LIST.
+ 130            
+ 131            
+ 132            *
+ 133            * VARIABLES
+ 134            *
+ 135            
+ 136            *
+ 137            * CONSTANTS
+ 138            *
+ 139  604C 01   TRUE   BYTE 1
+ 140  604D 00   FALSE  BYTE 0
+ 141  604E FF   HEXFF  BYTE >FF
+ 142  604F 0000        EVEN     *>>> Assembler Auto-Generated <<<
+ 143  6050 02EF STRPOS DATA 751         * X=23,Y=15 
+ 144  6052 002F ENDPOS DATA 47          * X=1 ,Y=15
+ 145  6054 0007 SSNKSZ DATA 7           * Starting Snake Size
+ 146  6056 0003 TMRDLY DATA 3           * Timer Delay before advancing 
+ 147            *
+ 148            * Tables
+ 149            *    These tables were pre-calculated to keep the 
+ 150            *    math processing and complexity to a minimum
+ 151            *
+ 152            
+ 153            **
+ 154            * Direction Table
+ 155            *    Defines the change in direction based
+ 156            *    on the key pressed, if there is a change.
+ 157            *      Key-> A B C D E F G H I J K L M 
+ 158            *            N O P Q R S T U V W X Y Z
+ 159  6058 0000 DIRTBL BYTE  0,0,0,0,0,0,0,0,2,0,0,0,0
+ 159  605A 0000  
+ 159  605C 0000  
+ 159  605E 0000  
+ 159  6060 0200  
+ 159  6062 0000  
+ 159  6064 00    
+ 160  6065 0003        BYTE  0,3,0,0,0,0,0,0,0,0,0,0,0 * UP
+ 160  6067 0000  
+ 160  6069 0000  
+ 160  606B 0000  
+ 160  606D 0000  
+ 160  606F 0000  
+ 160  6071 00    
+ 161  6072 0101        BYTE  1,1,1,1,1,1,1,1,2,1,1,1,1
+ 161  6074 0101  
+ 161  6076 0101  
+ 161  6078 0101  
+ 161  607A 0201  
+ 161  607C 0101  
+ 161  607E 01    
+ 162  607F 0103            BYTE  1,3,1,1,1,1,1,1,1,1,1,1,1 * DOWN 
+ 162  6081 0101  
+ 162  6083 0101  
+ 162  6085 0101  
+ 162  6087 0101  
+ 162  6089 0101  
+ 162  608B 01    
+ 163  608C 0102        BYTE  1,2,2,2,2,2,2,2,2,2,2,2,2
+ 163  608E 0202  
+ 163  6090 0202  
+ 163  6092 0202  
+ 163  6094 0202  
+ 163  6096 0202  
+ 163  6098 02    
+ 164  6099 0202            BYTE  2,2,2,0,2,2,2,2,2,2,2,2,2 * LEFT 
+ 164  609B 0200  
+ 164  609D 0202  
+ 164  609F 0202  
+ 164  60A1 0202  
+ 164  60A3 0202  
+ 164  60A5 02    
+ 165  60A6 0103        BYTE  1,3,3,3,3,3,3,3,3,3,3,3,3
+ 165  60A8 0303  
+ 165  60AA 0303  
+ 165  60AC 0303  
+ 165  60AE 0303  
+ 165  60B0 0303  
+ 165  60B2 03    
+ 166  60B3 0303            BYTE  3,3,3,0,3,3,3,3,3,3,3,3,3 * RIGHT
+ 166  60B5 0300  
+ 166  60B7 0303  
+ 166  60B9 0303  
+ 166  60BB 0303  
+ 166  60BD 0303  
+ 166  60BF 03    
+ 167            
+ 168            ** 
+ 169            * Body Direction Table
+ 170            *    Defines which body character to replace the 
+ 171            *    head with depending on the direction (row) 
+ 172            *    and the head character (column = headchr - 129)
+ 173            *
+ 174  60C0 8900 BDTBL  BYTE  137,0,142,141
+ 174  60C2 8E8D  
+ 175  60C4 0089        BYTE  0,137,139,140
+ 175  60C6 8B8C  
+ 176  60C8 8C8D        BYTE  140,141,138,0
+ 176  60CA 8A00  
+ 177  60CC 8B8E        BYTE  139,142,0,138
+ 177  60CE 008A  
+ 178            
+ 179            ** 
+ 180            * Tail Direction Table
+ 181            *    Defines which tail character to replace the 
+ 182            *    body with depending on the previous tail 
+ 183            *    character (row = oldtail - 132) and the body 
+ 184            *    char it replaces (column = bodychr - 137)
+ 185            *
+ 186  60D0 8500 TDTBL  BYTE  133,0,136,135,0,0
+ 186  60D2 8887  
+ 186  60D4 0000  
+ 187  60D6 8600        BYTE  134,0,0,0,135,136
+ 187  60D8 0000  
+ 187  60DA 8788  
+ 188  60DC 0087        BYTE  0,135,134,0,0,133
+ 188  60DE 8600  
+ 188  60E0 0085  
+ 189  60E2 0088        BYTE  0,136,0,134,133,0     
+ 189  60E4 0086  
+ 189  60E6 8500  
+ 190            
+ 191            ********************************************************
+ 192            *    MAIN PROGRAM                                      *
+ 193            ********************************************************
+ 194  60E8 02E0 INIT   LWPI SUBWS           * Set up the location for the registers
+ 194  60EA 8300  
+ 195  60EC 020A        LI   R10,STACK       * Setup stack pointer
+ 195  60EE 8332  
+ 196  60F0 06A0            BL   @LSCS
+ 196  60F2 67CC  
+ 197  60F4 06A0        BL   @VINIT
+ 197  60F6 67E4  
+ 198            
+ 199  60F8 06A0 GMSTRT BL   @CLEAR          * Clear the screen
+ 199  60FA 65F6  
+ 200  60FC 0205        LI   R5,3                    * Game will start with 3 lives
+ 200  60FE 0003  
+ 201  6100 04C6            CLR  R6                          * Start on level 0
+ 202  6102 D820        MOVB @TRUE,@NEXTLF       * Cause  BL @PRANKY   
+ 202  6104 604C  
+ 202  6106 8352  
+ 203            
+ 204            NXTLF  
+ 205            *LI   R14,>FFFF       * Pause for a second to allow the keyboard
+ 206  6108 060E KLOOP0 DEC  R14             * buffer to clear.
+ 207  610A 16FE        JNE  KLOOP0
+ 208                       
+ 209  610C D820        MOVB @FALSE,@NLFLAG
+ 209  610E 604D  
+ 209  6110 8353  
+ 210  6112 D820            MOVB @FALSE,@TMFLAG
+ 210  6114 604D  
+ 210  6116 8354  
+ 211            
+ 212  6118 0200            LI   R0,23           * Start timer on row 24
+ 212  611A 0017  
+ 213  611C C800            MOV  R0,@TIMROW    
+ 213  611E 8356  
+ 214  6120 C820        MOV  @TMRDLY,@TIMDLY
+ 214  6122 6056  
+ 214  6124 8358  
+ 215            
+ 216  6126 0285        CI   R5,0            * If no more lives, then game over.
+ 216  6128 0000  
+ 217  612A 1357            JEQ  GLOVER
+ 218                       
+ 219  612C 0286        CI   R6,3            * If no more levels, then game over.
+ 219  612E 0003  
+ 220  6130 134F            JEQ  GMOVER
+ 221                       
+ 222  6132 9820        CB   @NEXTLF,@TRUE
+ 222  6134 8352  
+ 222  6136 604C  
+ 223  6138 1605            JNE  NXTLF1
+ 224            
+ 225  613A D820        MOVB @FALSE,@NEXTLF         
+ 225  613C 604D  
+ 225  613E 8352  
+ 226  6140 06A0        BL   @PRANKY
+ 226  6142 6A44  
+ 227            
+ 228  6144 06A0 NXTLF1 BL   @CLEAR          * Clear the screen
+ 228  6146 65F6  
+ 229  6148 06A0        BL   @BORDER         * Draw border
+ 229  614A 6482  
+ 230  614C 06A0        BL   @DRWLVL         * Draw current level
+ 230  614E 651E  
+ 231            
+ 232  6150 020E        LI   R14,>00A0       * Set initial delay
+ 232  6152 00A0  
+ 233  6154 C80E            MOV  R14,@DELAY
+ 233  6156 835A  
+ 234            
+ 235  6158 0204            LI   R4,10           * Start level with 10 apples to eat
+ 235  615A 000A  
+ 236                   
+ 237  615C D820            MOVB @HEXFF,@KEY     * Init KEY to no keypress
+ 237  615E 604E  
+ 237  6160 8375  
+ 238  6162 0200            LI   R0,>5100        * Set the last key pressed to up
+ 238  6164 5100  
+ 239  6166 C800            MOV  R0,@LASTKY      * and direction up.
+ 239  6168 8342  
+ 240                       
+ 241  616A 04E0            CLR  @CURSIZ         * Clear out the current snake size
+ 241  616C 8348  
+ 242  616E C820        MOV  @SSNKSZ,@SNKSIZ * Reset the snake size to the starting size
+ 242  6170 6054  
+ 242  6172 8346  
+ 243            
+ 244  6174 0207            LI   R7,783          * Starting head position is below the screen
+ 244  6176 030F  
+ 245  6178 0208            LI   R8,783          * Starting tail position
+ 245  617A 030F  
+ 246  617C 020F            LI   R15,>0085
+ 246  617E 0085  
+ 247  6180 C80F            MOV  R15,@OLDTLC     * Set the old tail char to up
+ 247  6182 834E  
+ 248                   
+ 249  6184 06A0        BL   @PLTAPL         * Draw the first apple
+ 249  6186 6612  
+ 250            
+ 251  6188 C020        MOV  @STRPOS,R0      * Start Door position
+ 251  618A 6050  
+ 252  618C 0201        LI   R1,>2000        * Open Door            
+ 252  618E 2000  
+ 253  6190 06A0        BL   @VSBW
+ 253  6192 66DA  
+ 254                   
+ 255  6194 06A0 GOTIME BL   @ADVTMR
+ 255  6196 61E6  
+ 256  6198 06A0        BL   @MOVSNK
+ 256  619A 6258  
+ 257            
+ 258  619C 9820        CB   @NEXTLF,@TRUE
+ 258  619E 8352  
+ 258  61A0 604C  
+ 259  61A2 1604            JNE  NXTLF2
+ 260                       
+ 261  61A4 0201        LI   R1,SNDCSH  * Make crash sound
+ 261  61A6 1021  
+ 262  61A8 06A0        BL   @SOUND         
+ 262  61AA 664E  
+ 263                       
+ 264  61AC 9820 NXTLF2 CB   @NLFLAG,@TRUE
+ 264  61AE 8353  
+ 264  61B0 604C  
+ 265  61B2 13AA            JEQ  NXTLF
+ 266                       
+ 267  61B4 C3A0        MOV  @DELAY,R14
+ 267  61B6 835A  
+ 268  61B8 D820            MOVB @FALSE,@KEYPRS
+ 268  61BA 604D  
+ 268  61BC 8345  
+ 269            LOOP01 
+ 270  61BE 06A0        BL   @UPDDIR         * Get the new direction     
+ 270  61C0 6572  
+ 271  61C2 060E        DEC  R14
+ 272  61C4 16FC        JNE  LOOP01         
+ 273  61C6 D820 LOOP02 MOVB @FALSE,@KEYPRS         
+ 273  61C8 604D  
+ 273  61CA 8345  
+ 274  61CC 04CE        CLR  R14
+ 275  61CE 10E2        JMP  GOTIME
+ 276            
+ 277  61D0 06A0 GMOVER BL   @GMOMSG
+ 277  61D2 6A8C  
+ 278  61D4 06A0        BL   @PRANKY
+ 278  61D6 6A44  
+ 279  61D8 108F        JMP  GMSTRT
+ 280                       
+ 281  61DA 06A0 GLOVER BL   @GMLMSG
+ 281  61DC 6B26  
+ 282  61DE 06A0        BL   @PRANKY
+ 282  61E0 6A44  
+ 283  61E2 108A        JMP  GMSTRT
+ 284            
+ 285            *************************************************
+ 286            * SUB Advance Timer: Handles the timer movement *
+ 287            *                    and clearing the timer and *
+ 288            *                    adding more apples.        *
+ 289            *************************************************
+ 290  61E4 0020 W32    DATA 32
+ 291  61E6 CE8B ADVTMR MOV  R11,*R10+     * Push the return address onto the stack
+ 292              
+ 293  61E8 9820        CB   @TMFLAG,@TRUE * If TMFLAG is true, then reset timer
+ 293  61EA 8354  
+ 293  61EC 604C  
+ 294  61EE 1325            JEQ  ADVTM1
+ 295            
+ 296  61F0 C020        MOV  @TIMDLY,R0    * If the Timer Delay is at zero,
+ 296  61F2 8358  
+ 297  61F4 0280        CI   R0,0          * advance the timer, else dec
+ 297  61F6 0000  
+ 298  61F8 162C            JNE  ADVTM3        * the Timer Delay
+ 299                       
+ 300  61FA C820        MOV  @TMRDLY,@TIMDLY 
+ 300  61FC 6056  
+ 300  61FE 8358  
+ 301             
+ 302  6200 C020        MOV  @TIMROW,R0
+ 302  6202 8356  
+ 303  6204 0280        CI   R0,0
+ 303  6206 0000  
+ 304  6208 1310            JEQ  ADVTM0
+ 305                       
+ 306  620A C020            MOV  @TIMROW,R0    * Get the next timer row
+ 306  620C 8356  
+ 307            
+ 308  620E 3820        MPY  @W32,R0       * Mult to get the leftmost pos on the row
+ 308  6210 61E4  
+ 309  6212 C001        MOV  R1,R0         * Move the answer into R0       
+ 310  6214 0201        LI   R1,>9800      * Timer block character            
+ 310  6216 9800  
+ 311  6218 06A0        BL   @VSBW         * Draw the left timer block      
+ 311  621A 66DA  
+ 312            
+ 313  621C 0220            AI   R0,31         * Add to get the leftmost pos on the row 
+ 313  621E 001F  
+ 314  6220 06A0        BL   @VSBW         * Draw the right timer block     
+ 314  6222 66DA  
+ 315            
+ 316  6224 0620        DEC  @TIMROW            
+ 316  6226 8356  
+ 317  6228 100E            JMP  ADVTM2
+ 318                       
+ 319  622A 06A0 ADVTM0 BL   @PLTAPL         * Add three apples and reset timer
+ 319  622C 6612  
+ 320  622E 06A0        BL   @PLTAPL
+ 320  6230 6612  
+ 321  6232 06A0        BL   @PLTAPL
+ 321  6234 6612  
+ 322  6236 0224            AI   R4,>403         * R4HB = Extra + 1, R4LB = Number left            
+ 322  6238 0403  
+ 323                   
+ 324  623A 06A0 ADVTM1 BL   @CLRTMR 
+ 324  623C 64CA  
+ 325  623E 0200            LI   R0,23           * Start timer on row 24
+ 325  6240 0017  
+ 326  6242 C800            MOV  R0,@TIMROW    
+ 326  6244 8356  
+ 327                       
+ 328  6246 D820 ADVTM2 MOVB @FALSE,@TMFLAG
+ 328  6248 604D  
+ 328  624A 8354  
+ 329  624C 064A        DECT R10           * Move the stack pointer down
+ 330  624E C2DA        MOV  *R10,R11      * Pop the return address off the stack
+ 331  6250 045B        RT                 * RETURN
+ 332            
+ 333  6252 0620 ADVTM3 DEC  @TIMDLY
+ 333  6254 8358  
+ 334  6256 10F7        JMP  ADVTM2
+ 335                       
+ 336            *************************************************
+ 337            * SUB Move Snake: Controls the snake movement.  *
+ 338            *************************************************
+ 339  6258 CE8B MOVSNK MOV  R11,*R10+   * Push the return address onto the stack
+ 340                   
+ 341  625A 06A0        BL   @MOVHD
+ 341  625C 629C  
+ 342  625E 06A0        BL   @MOVBD
+ 342  6260 639A  
+ 343                       
+ 344  6262 C060            MOV  @SNKSIZ,R1
+ 344  6264 8346  
+ 345  6266 8060        C    @CURSIZ,R1  * Has snake reached its new size?
+ 345  6268 8348  
+ 346  626A 160B        JNE  GROWSZ      * If not, skip the tail and inc size
+ 347            
+ 348  626C D820        MOVB @>83CE,@>83CE * If another sound is playing, skip this next one
+ 348  626E 83CE  
+ 348  6270 83CE  
+ 349  6272 1604            JNE  SS1
+ 350                       
+ 351  6274 0201            LI   R1,SNDMOV   * Make standard move sound
+ 351  6276 1000  
+ 352  6278 06A0        BL   @SOUND         
+ 352  627A 664E  
+ 353             
+ 354  627C 06A0 SS1    BL   @MOVTL
+ 354  627E 63DA  
+ 355  6280 100A        JMP  MVSNK0
+ 356                       
+ 357  6282 D820 GROWSZ MOVB @>83CE,@>83CE * If another sound is playing, skip this next one
+ 357  6284 83CE  
+ 357  6286 83CE  
+ 358  6288 1604            JNE  SS2
+ 359            
+ 360  628A 0201        LI   R1,SNDGRW   * make growing sound
+ 360  628C 1016  
+ 361  628E 06A0        BL   @SOUND
+ 361  6290 664E  
+ 362                       
+ 363  6292 05A0 SS2        INC  @CURSIZ 
+ 363  6294 8348  
+ 364                       
+ 365  6296 064A MVSNK0 DECT R10         * Move the stack pointer down
+ 366  6298 C2DA        MOV  *R10,R11    * Pop the return address off the stack
+ 367  629A 045B        RT               * RETURN
+ 368            
+ 369            *************************************************
+ 370            * SUB Move Head: Move and draw the snake's head.*
+ 371            *************************************************
+ 372  629C CE8B MOVHD  MOV  R11,*R10+   * Push the return address onto the stack
+ 373            
+ 374  629E 04C1        CLR  R1
+ 375  62A0 04CE            CLR  R14
+ 376  62A2 04CF            CLR  R15
+ 377            
+ 378  62A4 C807        MOV  R7,@OLDHDP  * Save the head position
+ 378  62A6 834C  
+ 379            
+ 380  62A8 C3E0            MOV  @OLDHDP,R15
+ 380  62AA 834C  
+ 381  62AC 028F        CI   R15,783
+ 381  62AE 030F  
+ 382  62B0 1306            JEQ  MOVHD0
+ 383                       
+ 384  62B2 C007        MOV  R7,R0       * Get the old head char
+ 385  62B4 06A0            BL   @VSBR       * Get the char at that position
+ 385  62B6 670E  
+ 386  62B8 06C1            SWPB R1
+ 387  62BA C801        MOV  R1,@OLDHDC
+ 387  62BC 834A  
+ 388                       
+ 389  62BE 93A0 MOVHD0 CB   @DIR,R14    * Is the direction up?
+ 389  62C0 8343  
+ 390  62C2 1317        JEQ  HMVUP
+ 391            
+ 392  62C4 020E            LI   R14,>0100
+ 392  62C6 0100  
+ 393  62C8 93A0            CB   @DIR,R14    * Is the direction down?
+ 393  62CA 8343  
+ 394  62CC 130D            JEQ  HMVDWN
+ 395            
+ 396  62CE 020E            LI   R14,>0200
+ 396  62D0 0200  
+ 397  62D2 93A0            CB   @DIR,R14    * Is the direction left?
+ 397  62D4 8343  
+ 398  62D6 1304        JEQ  HMVLFT
+ 399            
+ 400  62D8 0587 HMVRGT INC  R7         * Else direction must be right
+ 401  62DA C3E0        MOV  @HRGHT,R15
+ 401  62DC 68E6  
+ 402  62DE 100D        JMP  CHKOBS         
+ 403            
+ 404  62E0 0607 HMVLFT DEC  R7     
+ 405  62E2 C3E0        MOV  @HLEFT,R15
+ 405  62E4 68DC  
+ 406  62E6 1009        JMP  CHKOBS         
+ 407            
+ 408  62E8 0227 HMVDWN AI   R7,32
+ 408  62EA 0020  
+ 409  62EC C3E0        MOV  @HDOWN,R15
+ 409  62EE 68D2  
+ 410  62F0 1004        JMP  CHKOBS         
+ 411            
+ 412  62F2 0227 HMVUP  AI   R7,-32
+ 412  62F4 FFE0  
+ 413  62F6 C3E0        MOV  @HUP,R15
+ 413  62F8 68C8  
+ 414                       
+ 415            CHKOBS 
+ 416  62FA C007        MOV  R7,R0
+ 417  62FC 04C1            CLR  R1
+ 418  62FE 06A0            BL   @VSBR      * Get the char at that position
+ 418  6300 670E  
+ 419  6302 06C1            SWPB R1
+ 420                       
+ 421  6304 020E        LI   R14,32     * Space char
+ 421  6306 0020  
+ 422  6308 8381            C    R1,R14     * Was it a space?
+ 423  630A 1336            JEQ  DRHEAD
+ 424            
+ 425  630C 8801            C    R1,@APPLE  * Was it an apple?
+ 425  630E 6954  
+ 426  6310 1310            JEQ  ATEAPP
+ 427            
+ 428  6312 8801            C    R1,@DOOR   * Was it a door?
+ 428  6314 68BE  
+ 429  6316 1308            JEQ  NXTLVL
+ 430            
+ 431  6318 0605 KILLED DEC  R5
+ 432  631A D820        MOVB @TRUE,@NLFLAG
+ 432  631C 604C  
+ 432  631E 8353  
+ 433  6320 D820            MOVB @TRUE,@NEXTLF
+ 433  6322 604C  
+ 433  6324 8352  
+ 434  6326 1028        JMP  DRHEAD       
+ 435            
+ 436  6328 0586 NXTLVL INC  R6
+ 437  632A D820        MOVB @TRUE,@NLFLAG
+ 437  632C 604C  
+ 437  632E 8353  
+ 438  6330 1023        JMP  DRHEAD 
+ 439                       
+ 440  6332 0201 ATEAPP LI   R1,SNDGLP  * make gulp sound
+ 440  6334 1041  
+ 441  6336 06A0        BL   @SOUND                
+ 441  6338 664E  
+ 442            
+ 443  633A D820        MOVB @TRUE,@TMFLAG
+ 443  633C 604C  
+ 443  633E 8354  
+ 444  6340 04C3        CLR  R3
+ 445  6342 9820        CB   @R4HB,@R3LB
+ 445  6344 8308  
+ 445  6346 8307  
+ 446  6348 1303            JEQ  DECAPP
+ 447  634A 06C4        SWPB R4
+ 448  634C 0604            DEC  R4
+ 449  634E 06C4            SWPB R4
+ 450  6350 0604 DECAPP DEC  R4 
+ 451  6352 131A        JEQ  OPENDR
+ 452            
+ 453  6354 9820        CB   @R4HB,@R3LB
+ 453  6356 8308  
+ 453  6358 8307  
+ 454  635A 1602            JNE  DODLY
+ 455                       
+ 456  635C 06A0 DRAWAP BL   @PLTAPL    * Draw next apple
+ 456  635E 6612  
+ 457  6360 C3A0 DODLY  MOV  @DELAY,R14
+ 457  6362 835A  
+ 458  6364 022E            AI   R14,-5
+ 458  6366 FFFB  
+ 459  6368 C80E        MOV  R14,@DELAY
+ 459  636A 835A  
+ 460  636C C3A0            MOV  @SNKSIZ,R14
+ 460  636E 8346  
+ 461  6370 022E        AI   R14,8
+ 461  6372 0008  
+ 462  6374 C80E            MOV  R14,@SNKSIZ        
+ 462  6376 8346  
+ 463            
+ 464  6378 C007 DRHEAD MOV  R7,R0      * Current head position
+ 465  637A C04F        MOV  R15,R1     * Head character            
+ 466  637C 06C1        SWPB R1
+ 467  637E 06A0        BL   @VSBW
+ 467  6380 66DA  
+ 468             
+ 469  6382 064A MOVHD1 DECT R10        * Move the stack pointer down
+ 470  6384 C2DA        MOV  *R10,R11   * Pop the return address off the stack
+ 471  6386 045B        RT                  * RETURN
+ 472            
+ 473  6388 C020 OPENDR MOV  @ENDPOS,R0
+ 473  638A 6052  
+ 474  638C 0201        LI   R1,>8000
+ 474  638E 8000  
+ 475  6390 06A0            BL   @VSBW
+ 475  6392 66DA  
+ 476  6394 10F1            JMP  DRHEAD
+ 477                       
+ 478            *************************************************
+ 479            * SUB Draw Body: Draws the snake's body.        *
+ 480            *************************************************
+ 481  6396 0004 W4     DATA  4
+ 482  6398 81   B129   BYTE  129
+ 483  6399 0000        EVEN     *>>> Assembler Auto-Generated <<<
+ 484  639A CE8B MOVBD  MOV  R11,*R10+     * Push the return address onto the stack
+ 485            
+ 486  639C C3E0            MOV  @OLDHDP,R15
+ 486  639E 834C  
+ 487  63A0 028F        CI   R15,783
+ 487  63A2 030F  
+ 488  63A4 1315            JEQ  MOVBD0
+ 489                       
+ 490  63A6 C020        MOV  @OLDHDC,R0    * Move old head char code to R0
+ 490  63A8 834A  
+ 491  63AA 7820            SB   @B129,@R0LB   * Sub to create column index
+ 491  63AC 6398  
+ 491  63AE 8301  
+ 492                       
+ 493  63B0 04C1            CLR  R1            * Clear out R1
+ 494  63B2 D820        MOVB @DIR,@R1LB    * Move direction to R1 Low Byte   
+ 494  63B4 8343  
+ 494  63B6 8303  
+ 495  63B8 3860        MPY  @W4,R1        * Mult to get the row index
+ 495  63BA 6396  
+ 496                       
+ 497  63BC B820            AB   @R0LB,@R2LB   * Add the column and row index      
+ 497  63BE 8301  
+ 497  63C0 8305  
+ 498            
+ 499  63C2 04C1        CLR  R1
+ 500  63C4 D062        MOVB @BDTBL(R2),R1 * Get the body char.        
+ 500  63C6 60C0  
+ 501  63C8 C020            MOV  @OLDHDP,R0
+ 501  63CA 834C  
+ 502            
+ 503  63CC 06A0 DRBODY BL   @VSBW          
+ 503  63CE 66DA  
+ 504                       
+ 505  63D0 064A MOVBD0 DECT R10            * Move the stack pointer down
+ 506  63D2 C2DA        MOV  *R10,R11       * Pop the return address off the stack
+ 507  63D4 045B        RT                  * RETURN
+ 508            
+ 509            *************************************************
+ 510            * SUB Draw Tail: Draws the snake's tail.        *
+ 511            *************************************************
+ 512  63D6 85   B133   BYTE 133
+ 513  63D7 89   B137   BYTE 137
+ 514  63D8 0006 W6     DATA 6
+ 515  63DA CE8B MOVTL  MOV  R11,*R10+       * Push the return address onto the stack
+ 516            
+ 517  63DC 04C1        CLR  R1
+ 518  63DE 04CE            CLR  R14
+ 519  63E0 04CF            CLR  R15
+ 520            
+ 521  63E2 C808        MOV  R8,@OLDTLP      * Save the tail position
+ 521  63E4 8350  
+ 522            
+ 523  63E6 C3E0            MOV  @OLDTLP,R15
+ 523  63E8 8350  
+ 524  63EA 028F        CI   R15,783
+ 524  63EC 030F  
+ 525  63EE 1306            JEQ  MOVTL0
+ 526                       
+ 527  63F0 C008        MOV  R8,R0           * Get the old Tail char
+ 528  63F2 06A0            BL   @VSBR           * Get the char at that position
+ 528  63F4 670E  
+ 529  63F6 06C1            SWPB R1
+ 530  63F8 C801        MOV  R1,@OLDTLC
+ 530  63FA 834E  
+ 531            
+ 532  63FC D820 MOVTL0 MOVB @OLDTLC+1,@TDIR
+ 532  63FE 834F  
+ 532  6400 8344  
+ 533  6402 7820        SB   @B133,@TDIR     * Sub to create column index
+ 533  6404 63D6  
+ 533  6406 8344  
+ 534  6408 93A0        CB   @TDIR,R14       * Is the direction up?
+ 534  640A 8344  
+ 535  640C 1311        JEQ  TMVUP
+ 536            
+ 537  640E 020E            LI   R14,>0100
+ 537  6410 0100  
+ 538  6412 93A0            CB   @TDIR,R14       * Is the direction down?
+ 538  6414 8344  
+ 539  6416 1309            JEQ  TMVDWN
+ 540            
+ 541  6418 020E            LI   R14,>0200
+ 541  641A 0200  
+ 542  641C 93A0            CB   @TDIR,R14       * Is the direction left?
+ 542  641E 8344  
+ 543  6420 1302        JEQ  TMVLFT
+ 544            
+ 545  6422 0588 TMVRGT INC  R8              * Else direction must be right
+ 546  6424 1007        JMP  MOVTL1         
+ 547            
+ 548  6426 0608 TMVLFT DEC  R8     
+ 549  6428 1005        JMP  MOVTL1         
+ 550            
+ 551  642A 0228 TMVDWN AI   R8,32
+ 551  642C 0020  
+ 552  642E 1002        JMP  MOVTL1         
+ 553            
+ 554  6430 0228 TMVUP  AI   R8,-32
+ 554  6432 FFE0  
+ 555            
+ 556  6434 04C1 MOVTL1 CLR  R1
+ 557  6436 C008        MOV  R8,R0           * Get the char at the new tail position
+ 558  6438 06A0            BL   @VSBR           * Get the char at that position
+ 558  643A 670E  
+ 559  643C C001        MOV  R1,R0
+ 560  643E 06C0            SWPB R0
+ 561  6440 7820            SB   @B137,@R0LB
+ 561  6442 63D7  
+ 561  6444 8301  
+ 562                       
+ 563  6446 04C1        CLR  R1              * Clear out R1
+ 564  6448 D820        MOVB @TDIR,@R1LB     * Move direction to R1 Low Byte   
+ 564  644A 8344  
+ 564  644C 8303  
+ 565  644E 3860        MPY  @W6,R1          * Mult to get the row index
+ 565  6450 63D8  
+ 566                       
+ 567  6452 B820            AB   @R0LB,@R2LB     * Add the column and row index      
+ 567  6454 8301  
+ 567  6456 8305  
+ 568            
+ 569  6458 04C1        CLR  R1
+ 570  645A D062        MOVB @TDTBL(R2),R1   * Get the tail char.        
+ 570  645C 60D0  
+ 571            
+ 572  645E C008 DRTAIL MOV  R8,R0           * Current head position
+ 573  6460 06A0        BL   @VSBW
+ 573  6462 66DA  
+ 574            
+ 575  6464 C020 CLROLD MOV  @OLDTLP,R0      * Clear the old tail
+ 575  6466 8350  
+ 576  6468 8800        C    R0,@STRPOS      
+ 576  646A 6050  
+ 577  646C 1603        JNE  MOVTL2            
+ 578  646E 0201        LI   R1,>7F00        * Put a block if old tail at start
+ 578  6470 7F00  
+ 579  6472 1002        JMP  MOVTL3         
+ 580  6474 0201 MOVTL2 LI   R1,>2000        * Else, put a space
+ 580  6476 2000  
+ 581  6478 06A0 MOVTL3 BL   @VSBW
+ 581  647A 66DA  
+ 582                       
+ 583  647C 064A        DECT R10             * Move the stack pointer down
+ 584  647E C2DA        MOV  *R10,R11        * Pop the return address off the stack
+ 585  6480 045B        RT                   * RETURN
+ 586            
+ 587            *************************************************
+ 588            * SUB Draw Border: Draws the border and clear   * 
+ 589            *                  viewport.                    *
+ 590            *************************************************
+ 591  6482 CE8B BORDER MOV  R11,*R10+   * Push the return address onto the stack
+ 592                   
+ 593  6484 0200        LI   R0,32       * Start at Row 2.
+ 593  6486 0020  
+ 594  6488 0201        LI   R1,>7F00    * Character 127
+ 594  648A 7F00  
+ 595  648C 0202        LI   R2,33       * Draw top Border plus start of next row
+ 595  648E 0021  
+ 596  6490 0203            LI   R3,1
+ 596  6492 0001  
+ 597  6494 06A0        BL   @VSMW                                                               
+ 597  6496 6784  
+ 598                   
+ 599  6498 0209        LI   R9,21       * Do the next 21 rows
+ 599  649A 0015  
+ 600  649C 0201 BDRNR  LI   R1,>2000    * 30 Spaces
+ 600  649E 2000  
+ 601  64A0 0202        LI   R2,30       
+ 601  64A2 001E  
+ 602  64A4 06A0        BL   @VSMW                                                               
+ 602  64A6 6784  
+ 603  64A8 0201            LI   R1,>7F00    * Character 127
+ 603  64AA 7F00  
+ 604  64AC 0202        LI   R2,2        * 2 Blocks
+ 604  64AE 0002  
+ 605  64B0 06A0        BL   @VSMW                                                               
+ 605  64B2 6784  
+ 606  64B4 0609            DEC  R9
+ 607  64B6 16F2            JNE  BDRNR
+ 608            
+ 609  64B8 0200        LI   R0,737      * Finish at the bottom  
+ 609  64BA 02E1  
+ 610  64BC 0202        LI   R2,31
+ 610  64BE 001F  
+ 611  64C0 06A0        BL   @VSMW
+ 611  64C2 6784  
+ 612            
+ 613  64C4 064A        DECT R10         * Move the stack pointer down
+ 614  64C6 C2DA        MOV  *R10,R11    * Pop the return address off the stack
+ 615  64C8 045B        RT               * RETURN
+ 616            
+ 617            *************************************************
+ 618            * SUB Clear Timer: Clears the Timer             * 
+ 619            *************************************************
+ 620  64CA CE8B CLRTMR MOV  R11,*R10+   * Push the return address onto the stack
+ 621                   
+ 622  64CC 0200        LI   R0,32       
+ 622  64CE 0020  
+ 623  64D0 0201        LI   R1,>7F00    
+ 623  64D2 7F00  
+ 624  64D4 0202        LI   R2,1        
+ 624  64D6 0001  
+ 625  64D8 0203            LI   R3,1
+ 625  64DA 0001  
+ 626  64DC 06A0        BL   @VSMW
+ 626  64DE 6784  
+ 627             
+ 628  64E0 0200        LI   R0,63       
+ 628  64E2 003F  
+ 629  64E4 0201        LI   R1,>7F00    
+ 629  64E6 7F00  
+ 630  64E8 0202        LI   R2,2        
+ 630  64EA 0002  
+ 631  64EC 0203            LI   R3,1
+ 631  64EE 0001  
+ 632  64F0 06A0        BL   @VSMW
+ 632  64F2 6784  
+ 633             
+ 634  64F4 0209        LI   R9,21       * Do the next 21 rows
+ 634  64F6 0015  
+ 635  64F8 0220 CLRTM1 AI   R0,30
+ 635  64FA 001E  
+ 636  64FC 0201            LI   R1,>7F00    * Character 127
+ 636  64FE 7F00  
+ 637  6500 0202        LI   R2,2        * 2 Blocks
+ 637  6502 0002  
+ 638  6504 06A0        BL   @VSMW                                                               
+ 638  6506 6784  
+ 639  6508 0609            DEC  R9
+ 640  650A 16F6            JNE  CLRTM1
+ 641            
+ 642  650C 0200        LI   R0,737      * Finish at the bottom  
+ 642  650E 02E1  
+ 643  6510 0202        LI   R2,31
+ 643  6512 001F  
+ 644  6514 06A0        BL   @VSMW
+ 644  6516 6784  
+ 645            
+ 646  6518 064A        DECT R10         * Move the stack pointer down
+ 647  651A C2DA        MOV  *R10,R11    * Pop the return address off the stack
+ 648  651C 045B        RT               * RETURN
+ 649            
+ 650                       
+ 651            *************************************************
+ 652            * SUB Draw Level: Draws the next level          *
+ 653            *************************************************
+ 654  651E CE8B DRWLVL MOV  R11,*R10+        * Push the return address onto the stack
+ 655            
+ 656  6520 C346        MOV  R6,R13           * Load R13 with the current level
+ 657  6522 0A1D            SLA  R13,1
+ 658  6524 C3AD        MOV  @LEVELS(R13),R14 * Get the address of the current level
+ 658  6526 6544  
+ 659  6528 05CD        INCT R13
+ 660  652A C3ED            MOV  @LEVELS(R13),R15 * Get the address of the next level
+ 660  652C 6544  
+ 661  652E C03E DL00   MOV  *R14+,R0         
+ 662  6530 C07E            MOV  *R14+,R1         
+ 663  6532 C0BE        MOV  *R14+,R2         
+ 664  6534 C0FE        MOV  *R14+,R3
+ 665  6536 06A0        BL   @VSMW            
+ 665  6538 6784  
+ 666  653A 83CE            C    R14,R15          * If the we've reached the next level 
+ 667  653C 16F8            JNE  DL00             * data, then we're done.
+ 668            
+ 669  653E 064A        DECT R10         * Move the stack pointer down
+ 670  6540 C2DA        MOV  *R10,R11    * Pop the return address off the stack
+ 671  6542 045B        RT               * RETURN
+ 672            
+ 673  6544 654C LEVELS DATA LVL01,LVL02,LVL03,LVLEND
+ 673  6546 6554  
+ 673  6548 655C  
+ 673  654A 656C  
+ 674  654C 0189 LVL01  DATA 393,>2000,1,1 
+ 674  654E 2000  
+ 674  6550 0001  
+ 674  6552 0001  
+ 675  6554 0189 LVL02  DATA 393,>7F00,14,1
+ 675  6556 7F00  
+ 675  6558 000E  
+ 675  655A 0001  
+ 676  655C 0189 LVL03  DATA 393,>7F00,14,1
+ 676  655E 7F00  
+ 676  6560 000E  
+ 676  6562 0001  
+ 677  6564 00D0        DATA 208,>7F00,14,32
+ 677  6566 7F00  
+ 677  6568 000E  
+ 677  656A 0020  
+ 678  656C 0000 LVLEND DATA 0
+ 679            
+ 680            *************************************************
+ 681            * SUB Update Direction (UPDDIR)                 *
+ 682            *     Uses current direction and key pressed to *
+ 683            *     determine the new direction               *
+ 684            *************************************************
+ 685  656E 001A W26    DATA  26
+ 686  6570 41   B65    BYTE  65
+ 687  6571 0000        EVEN     *>>> Assembler Auto-Generated <<<
+ 688  6572 CE8B UPDDIR MOV  R11,*R10+         * Push the return address onto the stack
+ 689  6574 C800        MOV  R0,@TEMP0        * Save R0
+ 689  6576 8324  
+ 690  6578 C801        MOV  R1,@TEMP1        * Save R1
+ 690  657A 8326  
+ 691  657C C802        MOV  R2,@TEMP2        * Save R2
+ 691  657E 8328  
+ 692            
+ 693  6580 06A0        BL   @KSCAN            * Get the last key pressed
+ 693  6582 66AC  
+ 694                       
+ 695  6584 04C0            CLR  R0                * Clear out R0
+ 696  6586 D820        MOVB @LASTKY,@R0LB     * Move key to R0 Low Byte
+ 696  6588 8342  
+ 696  658A 8301  
+ 697  658C 7820            SB   @B65,@R0LB        * Sub to create column index
+ 697  658E 6570  
+ 697  6590 8301  
+ 698                       
+ 699  6592 04C1            CLR  R1                * Clear out R1
+ 700  6594 D820        MOVB @DIR,@R1LB        * Move direction to R1 Low Byte   
+ 700  6596 8343  
+ 700  6598 8303  
+ 701  659A 3860        MPY  @W26,R1           * Mult to get the row index
+ 701  659C 656E  
+ 702                       
+ 703  659E B820            AB   @R0LB,@R2LB       * Add the column and row index
+ 703  65A0 8301  
+ 703  65A2 8305  
+ 704                       
+ 705  65A4 04C0            CLR  R0
+ 706  65A6 D820            MOVB @LASTKY,@R0LB
+ 706  65A8 8342  
+ 706  65AA 8301  
+ 707  65AC 0280            CI   R0,65
+ 707  65AE 0041  
+ 708  65B0 1119            JLT  UPDD0
+ 709  65B2 0280        CI   R0,90          
+ 709  65B4 005A  
+ 710  65B6 1516            JGT  UPDD0
+ 711            
+ 712  65B8 04C0        CLR  R0
+ 713  65BA D822            MOVB @DIRTBL(R2),@R0LB * Get the new direction. 
+ 713  65BC 6058  
+ 713  65BE 8301  
+ 714  65C0 9820        CB   @DIR,@R0LB
+ 714  65C2 8343  
+ 714  65C4 8301  
+ 715  65C6 130E            JEQ  UPDD0
+ 716                   
+ 717            *       MOVB @>83CE,@>83CE * If another sound is playing, skip this next one
+ 718            *           JNE  SS3
+ 719                       
+ 720  65C8 0201            LI   R1,SNDTRN         * make turning sound
+ 720  65CA 100B  
+ 721  65CC 06A0        BL   @SOUND         
+ 721  65CE 664E  
+ 722            
+ 723  65D0 9820 SS3    CB   @KEYPRS,@TRUE     * Don't update the direction until
+ 723  65D2 8345  
+ 723  65D4 604C  
+ 724  65D6 1306            JEQ  UPDD0             * KEYPRS is false again.
+ 725                       
+ 726  65D8 D820            MOVB @R0LB,@DIR
+ 726  65DA 8301  
+ 726  65DC 8343  
+ 727  65DE D820            MOVB @TRUE,@KEYPRS
+ 727  65E0 604C  
+ 727  65E2 8345  
+ 728                       
+ 729  65E4 C020 UPDD0  MOV  @TEMP0,R0        * Restore R0
+ 729  65E6 8324  
+ 730  65E8 C060        MOV  @TEMP1,R1        * Restore R1
+ 730  65EA 8326  
+ 731  65EC C0A0        MOV  @TEMP2,R2        * Restore R2
+ 731  65EE 8328  
+ 732            
+ 733  65F0 064A        DECT R10               * Move the stack pointer down
+ 734  65F2 C2DA        MOV  *R10,R11          * Pop the return address off the stack
+ 735  65F4 045B        RT                     * RETURN
+ 736            
+ 737            *************************************************
+ 738            * SUB CLEAR: Clears the screen.                 *
+ 739            *************************************************
+ 740  65F6 CE8B CLEAR  MOV  R11,*R10+   * Push the return address onto the stack
+ 741             
+ 742  65F8 0200        LI   R0,0        * Screen location 0.
+ 742  65FA 0000  
+ 743  65FC 0201        LI   R1,>2000    * Write spaces.
+ 743  65FE 2000  
+ 744  6600 0202        LI   R2,768      * Write to all screen locations
+ 744  6602 0300  
+ 745  6604 0203        LI   R3,1
+ 745  6606 0001  
+ 746  6608 06A0        BL   @VSMW       * Clear Screen
+ 746  660A 6784  
+ 747             
+ 748  660C 064A        DECT R10         * Move the stack pointer down
+ 749  660E C2DA        MOV  *R10,R11    * Pop the return address off the stack
+ 750  6610 045B        RT               * RETURN
+ 751            
+ 752            *************************************************
+ 753            * SUB DRWAPL: Draw an apple.                    *
+ 754            *************************************************
+ 755            
+ 756            PLTAPL                                                                           
+ 757  6612 CE8B        MOV  R11,*R10+         * Push return address onto the stack              
+ 758  6614 CE8F        MOV  R15,*R10+         * Save R15 since its destroyed                                                                         
+ 759            *      Get a random screen location                                             
+ 760  6616 06A0 PLOT01 BL   @RANDNO           * Get a random number                      
+ 760  6618 666E  
+ 761  661A C3E0        MOV  @RAND16,R15       * Put it into R15
+ 761  661C 8340  
+ 762  661E 020D            LI   R13,672                                                              
+ 762  6620 02A0  
+ 763  6622 04CE        CLR  R14               * Dividend will be R14,R15                          
+ 764  6624 3F8D        DIV  R13,R14           * Make a number between 0 and 767                 
+ 765            
+ 766            *      Make sure there isn't something there already
+ 767  6626 022F        AI   R15,64
+ 767  6628 0040  
+ 768  662A C00F        MOV  R15,R0            * Get current character at R5
+ 769  662C 04C1        CLR  R1
+ 770  662E 06A0            BL   @VSBR
+ 770  6630 670E  
+ 771  6632 0281        CI   R1,>2000          * It needs to be a space                                                    
+ 771  6634 2000  
+ 772  6636 16EF            JNE  PLOT01   
+ 773                  
+ 774  6638 C00F        MOV  R15,R0             * Move to R0 for the VDP routine                  
+ 775  663A C060        MOV  @APPLE,R1
+ 775  663C 6954  
+ 776  663E 06C1            SWPB R1
+ 777                                                                                            
+ 778  6640 06A0        BL   @VSBW                                                               
+ 778  6642 66DA  
+ 779                                                                                            
+ 780  6644 064A        DECT R10               * Pop R15 off the stack                
+ 781  6646 C3DA        MOV  *R10,R15                                                            
+ 782  6648 064A        DECT R10               * Pop return address off the stack                
+ 783  664A C2DA        MOV  *R10,R11                                                            
+ 784  664C 045B        RT                                                              
+ 785            
+ 786            ********************
+ 787            * SOUND SUBROUTINE.
+ 788            ********************
+ 789  664E CE8B SOUND  MOV  R11,*R10+
+ 790            
+ 791  6650 0300        LIMI 0
+ 791  6652 0000  
+ 792  6654 C801            MOV  R1,@>83CC
+ 792  6656 83CC  
+ 793  6658 D820        MOVB @TRUE,@>83CE
+ 793  665A 604C  
+ 793  665C 83CE  
+ 794  665E F820        SOCB @TRUE,@>83FD
+ 794  6660 604C  
+ 794  6662 83FD  
+ 795  6664 0300        LIMI 2
+ 795  6666 0002  
+ 796                       
+ 797  6668 064A            DECT R10         * Move the stack pointer down
+ 798  666A C2DA        MOV  *R10,R11    * Pop the return address off the stack
+ 799  666C 045B        RT               * RETURN
+ 800            
+ 801            ************************************************************
+ 802            * ROUTINES TO REPLACE THE BLWP ROUTINES WHICH USE THE      *
+ 803            * GPL WORKSPACE.  THE REPLACEMENT IS DONE IN ORDER TO      *
+ 804            * KEEP THE VDP INTERRUPTS ACTIVE FOR THE TIMER AND SOUND   *
+ 805            * EXCEPT  WHEN THESE ROUTINES ARE CALLED.                  *
+ 806            ************************************************************
+ 807            
+ 808            ************************************************************
+ 809            * RANDOM NUMBER SUB: GENERATES AN 8 BIT RANDOM NUMBER AND  *
+ 810            *                    PLACES IT IN RANDOM.                  *
+ 811            ************************************************************
+ 812            RANDNO
+ 813  666E C804        MOV  R4,@TEMP0        * Save R4
+ 813  6670 8324  
+ 814  6672 C805        MOV  R5,@TEMP1        * Save R5
+ 814  6674 8326  
+ 815                       
+ 816  6676 0300        LIMI 0
+ 816  6678 0000  
+ 817  667A 02E0        LWPI GPLWS
+ 817  667C 83E0  
+ 818                       
+ 819  667E 0204        LI   R4,28403         * A prime number to multiply by                   
+ 819  6680 6EF3  
+ 820  6682 3920        MPY  @RAND16,R4       * Multiply by last random number                  
+ 820  6684 8340  
+ 821  6686 0225        AI   R5,31643         * Add a prime number                              
+ 821  6688 7B9B  
+ 822  668A C020        MOV  @RSEED,R0                
+ 822  668C 8379  
+ 823  668E 0240        ANDI R0,>000F          * Check if shift count is 0                       
+ 823  6690 000F  
+ 824  6692 1301        JEQ  RAND01            * A 0 count means shift 16, which is a wash       
+ 825  6694 0B05        SRC  R5,0              * Mix up the number to break odd/even pattern     
+ 826  6696 C805 RAND01 MOV  R5,@RAND16        * Save this number for next time                  
+ 826  6698 8340  
+ 827            
+ 828  669A 02E0        LWPI SUBWS
+ 828  669C 8300  
+ 829  669E 0300        LIMI 2
+ 829  66A0 0002  
+ 830                       
+ 831  66A2 C120            MOV  @TEMP0,R4        * Restore R4
+ 831  66A4 8324  
+ 832  66A6 C160        MOV  @TEMP1,R5        * Restore R5
+ 832  66A8 8326  
+ 833                       
+ 834  66AA 045B        RT     
+ 835                                                                                   
+ 836            *// RANDNO         
+ 837                       
+ 838            ************************************************************
+ 839            * Keyboard Scan - Put's pressed key in @KEY or 255 if no   *
+ 840            *                 key. If Key pressed, stores it in R3 High*
+ 841            ************************************************************
+ 842  66AC 0300 KSCAN  LIMI  0
+ 842  66AE 0000  
+ 843  66B0 02E0        LWPI  GPLWS          * LOAD GPL WORKSPACE.
+ 843  66B2 83E0  
+ 844  66B4 C80B        MOV   R11,@VTMP0    * SAVE GPL RETURN ADDRESS.
+ 844  66B6 832C  
+ 845  66B8 06A0        BL    @>000E         * CONSOLE ADDRESS OF SCAN.
+ 845  66BA 000E  
+ 846  66BC C2E0        MOV   @VTMP0,R11    * RESTORE GPL RETURN ADDRESS.
+ 846  66BE 832C  
+ 847  66C0 02E0        LWPI  SUBWS          * RESTORE OWN WORKSPACE.
+ 847  66C2 8300  
+ 848  66C4 0300        LIMI  2
+ 848  66C6 0002  
+ 849            
+ 850  66C8 9820        CB    @KEY,@HEXFF    * CHECK IF KEY PRESSED.
+ 850  66CA 8375  
+ 850  66CC 604E  
+ 851  66CE 1303        JEQ   MSCAN0
+ 852  66D0 D820            MOVB  @KEY,@LASTKY
+ 852  66D2 8375  
+ 852  66D4 8342  
+ 853                       
+ 854  66D6 045B MSCAN0 RT
+ 855                       
+ 856            ************************************************************
+ 857            * VSBW   WRITE HIGH BYTE CONTAINED IN R1 TO VDP LOCATION   *
+ 858            *        CONTAINED IN R0.                                  *
+ 859            *        ALTERNATE USE WITH DATA STATEMENTS VIA VSBW1.     *
+ 860            ************************************************************
+ 861  66D8 40   HEX40  BYTE  >40
+ 862             
+ 863  66D9 0000        EVEN     *>>> Assembler Auto-Generated <<<
+ 864  66DA C801 VSBW   MOV   R1,@VTMP1  * ENTRY WITHOUT USING
+ 864  66DC 832E  
+ 865  66DE C800        MOV   R0,@VTMP0  * DATA STATEMENTS.
+ 865  66E0 832C  
+ 866  66E2 1004        JMP   VSBW3
+ 867             
+ 868  66E4 C83B VSBW1  MOV   *R11+,@VTMP1   * ENTRIES USING DATA STATEMENTS.
+ 868  66E6 832E  
+ 869  66E8 C83B VSBW2  MOV   *R11+,@VTMP0
+ 869  66EA 832C  
+ 870             
+ 871  66EC 0300 VSBW3  LIMI   0
+ 871  66EE 0000  
+ 872  66F0 B820        AB    @HEX40,@VTMP0
+ 872  66F2 66D8  
+ 872  66F4 832C  
+ 873  66F6 D820        MOVB  @VTMP0+1,@>8C02
+ 873  66F8 832D  
+ 873  66FA 8C02  
+ 874  66FC D820        MOVB  @VTMP0,@>8C02
+ 874  66FE 832C  
+ 874  6700 8C02  
+ 875  6702 D820        MOVB  @VTMP1,@>8C00
+ 875  6704 832E  
+ 875  6706 8C00  
+ 876  6708 0300        LIMI  2
+ 876  670A 0002  
+ 877  670C 045B        RT
+ 878                       
+ 879            ************************************************************
+ 880            * VSBR   READ INTO HIGH BYTE OF R1 FROM VDP LOCATION       *
+ 881            *        CONTAINED IN R0.                                  *
+ 882            ************************************************************
+ 883  670E 0300 VSBR   LIMI  0
+ 883  6710 0000  
+ 884  6712 C800        MOV   R0,@VTMP0
+ 884  6714 832C  
+ 885  6716 D820        MOVB  @VTMP0+1,@>8C02
+ 885  6718 832D  
+ 885  671A 8C02  
+ 886  671C D820        MOVB  @VTMP0,@>8C02
+ 886  671E 832C  
+ 886  6720 8C02  
+ 887  6722 D060        MOVB  @>8800,R1
+ 887  6724 8800  
+ 888  6726 0300        LIMI  2
+ 888  6728 0002  
+ 889  672A 045B        RT
+ 890            
+ 891            ************************************************************
+ 892            * VMBW   WRITE THE NUMBER OF BYTES CONTAINED IN R2 FROM    *
+ 893            *        THE ADDRESS CONTAINED IN R1 TO THE SCREEN LOCATION*
+ 894            *        CONTAINED IN R0.                                  *
+ 895            ************************************************************
+ 896  672C C800 VMBW   MOV   R0,@VTMP0       * ENTRY NOT USING
+ 896  672E 832C  
+ 897  6730 C801        MOV   R1,@VTMP1       * DATA STATEMENTS.
+ 897  6732 832E  
+ 898  6734 C802        MOV   R2,@VTMP2       *
+ 898  6736 8330  
+ 899  6738 1008        JMP   VMBW2            *
+ 900             
+ 901  673A C83B VMBW0  MOV   *R11+,@VTMP2    * ENTRIES USING DATA STATEMENTS.
+ 901  673C 8330  
+ 902  673E C83B        MOV   *R11+,@VTMP1    *
+ 902  6740 832E  
+ 903  6742 C83B        MOV   *R11+,@VTMP0    *
+ 903  6744 832C  
+ 904  6746 C060        MOV   @VTMP1,R1       *
+ 904  6748 832E  
+ 905             
+ 906  674A 0300 VMBW2  LIMI  0
+ 906  674C 0000  
+ 907  674E B820        AB    @HEX40,@VTMP0
+ 907  6750 66D8  
+ 907  6752 832C  
+ 908  6754 D820 VMBW3  MOVB  @VTMP0+1,@>8C02
+ 908  6756 832D  
+ 908  6758 8C02  
+ 909  675A D820        MOVB  @VTMP0,@>8C02
+ 909  675C 832C  
+ 909  675E 8C02  
+ 910  6760 05A0        INC   @VTMP0
+ 910  6762 832C  
+ 911  6764 D831        MOVB  *R1+,@>8C00
+ 911  6766 8C00  
+ 912  6768 0620        DEC   @VTMP2
+ 912  676A 8330  
+ 913  676C 16F3        JNE   VMBW3
+ 914  676E 0300        LIMI  2
+ 914  6770 0002  
+ 915             
+ 916  6772 C020        MOV   @VTMP0,R0
+ 916  6774 832C  
+ 917  6776 C060        MOV   @VTMP1,R1
+ 917  6778 832E  
+ 918  677A C0A0        MOV   @VTMP2,R2
+ 918  677C 8330  
+ 919  677E 0240        ANDI R0,>3FFF       
+ 919  6780 3FFF  
+ 920            
+ 921  6782 045B        RT
+ 922                       
+ 923            ************************************************************
+ 924            * VSMW   WRITE THE HIGH BYTE IN R1 THE NUMBER OF TIMES     * 
+ 925            *        IN R2 TO THE SCREEN LOCATION AT R0.               *
+ 926            *        R3 is the location increment 
+ 927            ************************************************************
+ 928  6784 C800 VSMW   MOV   R0,@VTMP0       * ENTRY NOT USING
+ 928  6786 832C  
+ 929  6788 C801        MOV   R1,@VTMP1       * DATA STATEMENTS.
+ 929  678A 832E  
+ 930  678C C802        MOV   R2,@VTMP2       *
+ 930  678E 8330  
+ 931             
+ 932  6790 0300        LIMI  0
+ 932  6792 0000  
+ 933  6794 B820        AB    @HEX40,@VTMP0
+ 933  6796 66D8  
+ 933  6798 832C  
+ 934  679A D820 VSMW0  MOVB  @VTMP0+1,@>8C02
+ 934  679C 832D  
+ 934  679E 8C02  
+ 935  67A0 D820        MOVB  @VTMP0,@>8C02
+ 935  67A2 832C  
+ 935  67A4 8C02  
+ 936  67A6 A803        A     R3,@VTMP0
+ 936  67A8 832C  
+ 937  67AA D820        MOVB  @VTMP1,@>8C00
+ 937  67AC 832E  
+ 937  67AE 8C00  
+ 938  67B0 0620        DEC   @VTMP2
+ 938  67B2 8330  
+ 939  67B4 16F2        JNE   VSMW0
+ 940  67B6 0300        LIMI  2
+ 940  67B8 0002  
+ 941             
+ 942  67BA C020        MOV   @VTMP0,R0
+ 942  67BC 832C  
+ 943  67BE C060        MOV   @VTMP1,R1
+ 943  67C0 832E  
+ 944  67C2 C0A0        MOV   @VTMP2,R2
+ 944  67C4 8330  
+ 945  67C6 0240        ANDI R0,>3FFF       
+ 945  67C8 3FFF  
+ 946            
+ 947  67CA 045B        RT
+ 948            
+ 949            *********************************************************************           
+ 950            *                                                                               
+ 951            * Load a nice character set                                                     
+ 952            *                                                                               
+ 953            LSCS                                                                            
+ 954  67CC CE8B        MOV  R11,*R10+         * Push return address onto the stack              
+ 955                                                                                            
+ 956            *       LI   R0,>800          * Start at first char position                   
+ 957  67CE 0200        LI   R0,>900          * Start at the space                   
+ 957  67D0 0900  
+ 958  67D2 0201        LI   R1,SCS1                                                             
+ 958  67D4 6BB6  
+ 959  67D6 0202        LI   R2,SCS1E-SCS1                                                      
+ 959  67D8 02F8  
+ 960  67DA 06A0        BL   @VMBW                                                               
+ 960  67DC 672C  
+ 961                                                                                            
+ 962  67DE 064A        DECT R10               * Pop return address off the stack                
+ 963  67E0 C2DA        MOV  *R10,R11                                                            
+ 964  67E2 045B        B    *R11                                                                
+ 965            *// LSCS                                                                        
+ 966                                                                                            
+ 967                                                                                            
+ 968            *********************************************************************           
+ 969            
+ 970            *****************************************************
+ 971            * Load Characters and Colors                        *
+ 972            *****************************************************
+ 973            *--------------------
+ 974            * CHARACTERS USED
+ 975            *--------------------
+ 976            * ASC SET Description
+ 977            * --- --- -----------
+ 978            * 127  16 Block
+ 979            * 128  17 Door
+ 980            * 129     Head Up
+ 981            * 130     Head Down
+ 982            * 131     Head Left
+ 983            * 132     Head Right
+ 984            * 133     Tail Up
+ 985            * 134     Tail Down
+ 986            * 135     Tail Left
+ 987            * 136  18 Tail Right
+ 988            * 137     Body Up<->Down
+ 989            * 138     Body Left<->Right
+ 990            * 139     Body Left->Down or Up->Right
+ 991            * 140     Body Right->Down or Up->Left
+ 992            * 141     Body Right->Up or Down->Left
+ 993            * 142     Body Left->Up or Down->Right
+ 994            * 144  19 Apple
+ 995            * 152  20 Timer Block
+ 996            *-------------------
+ 997            * COLORS USED
+ 998            *-------------------
+ 999            * SET   COLOR
+1000            * ---   -----
+1001            * 1-16  >F0    White on Black
+1002            * 17-18 >20    Medium Green on Black
+1003            * 19    >80    Medium Red on Black
+1004            * 20    >A0    Light Yellow on Black
+1005            
+1006            *      MOVE 16 BYTES FROM ROM(#C128) TO CHAR(144)
+1007  67E4 CE8B VINIT  MOV  R11,*R10+           * Push the return address onto the stack
+1008            
+1009  67E6 06A0        BL   @VMBW0
+1009  67E8 673A  
+1010  67EA 0010        DATA 16
+1011  67EC 68B6        DATA BLOCK+2
+1012  67EE 0BF8        DATA >BF8     * 127 >7F
+1013            
+1014  67F0 06A0        BL   @VMBW0
+1014  67F2 673A  
+1015  67F4 0010        DATA 16
+1016  67F6 68C0        DATA DOOR+2
+1017  67F8 0C00        DATA >C00     * 128 >80
+1018            
+1019  67FA 06A0        BL   @VMBW0
+1019  67FC 673A  
+1020  67FE 0010        DATA 16
+1021  6800 68CA        DATA HUP+2
+1022  6802 0C08        DATA >C08     * 129 >81
+1023            
+1024  6804 06A0        BL   @VMBW0
+1024  6806 673A  
+1025  6808 0010        DATA 16
+1026  680A 68D4        DATA HDOWN+2
+1027  680C 0C10        DATA >C10     * 130 >82
+1028            
+1029  680E 06A0        BL   @VMBW0
+1029  6810 673A  
+1030  6812 0010        DATA 16
+1031  6814 68DE        DATA HLEFT+2
+1032  6816 0C18        DATA >C18     * 131 >83
+1033            
+1034  6818 06A0        BL   @VMBW0
+1034  681A 673A  
+1035  681C 0010        DATA 16
+1036  681E 68E8        DATA HRGHT+2
+1037  6820 0C20        DATA >C20     * 132 >84
+1038            
+1039  6822 06A0        BL   @VMBW0
+1039  6824 673A  
+1040  6826 0010        DATA 16
+1041  6828 68F2        DATA TUP+2
+1042  682A 0C28        DATA >C28     * 133 >85
+1043            
+1044  682C 06A0        BL   @VMBW0
+1044  682E 673A  
+1045  6830 0010        DATA 16
+1046  6832 68FC        DATA TDOWN+2
+1047  6834 0C30        DATA >C30     * 134 >86
+1048            
+1049  6836 06A0        BL   @VMBW0
+1049  6838 673A  
+1050  683A 0010        DATA 16
+1051  683C 6906        DATA TLEFT+2
+1052  683E 0C38        DATA >C38     * 135 >87
+1053            
+1054  6840 06A0        BL   @VMBW0
+1054  6842 673A  
+1055  6844 0010        DATA 16
+1056  6846 6910        DATA TRGHT+2
+1057  6848 0C40        DATA >C40     * 136 >88
+1058            
+1059  684A 06A0        BL   @VMBW0
+1059  684C 673A  
+1060  684E 0010        DATA 16
+1061  6850 691A        DATA BUD+2
+1062  6852 0C48        DATA >C48     * 137 >89
+1063            
+1064  6854 06A0        BL   @VMBW0
+1064  6856 673A  
+1065  6858 0010        DATA 16
+1066  685A 6924        DATA BLR+2
+1067  685C 0C50        DATA >C50     * 138 >8A
+1068            
+1069  685E 06A0        BL   @VMBW0
+1069  6860 673A  
+1070  6862 0010        DATA 16
+1071  6864 692E        DATA LDUR+2
+1072  6866 0C58        DATA >C58     * 139 >8B
+1073            
+1074  6868 06A0        BL   @VMBW0
+1074  686A 673A  
+1075  686C 0010        DATA 16
+1076  686E 6938        DATA RDUL+2
+1077  6870 0C60        DATA >C60     * 140 >8C
+1078            
+1079  6872 06A0        BL   @VMBW0
+1079  6874 673A  
+1080  6876 0010        DATA 16
+1081  6878 6942        DATA RUDL+2
+1082  687A 0C68        DATA >C68     * 141 >8D
+1083            
+1084  687C 06A0        BL   @VMBW0
+1084  687E 673A  
+1085  6880 0010        DATA 16
+1086  6882 694C        DATA LUDR+2
+1087  6884 0C70        DATA >C70     * 142 >8E
+1088            
+1089  6886 06A0        BL   @VMBW0
+1089  6888 673A  
+1090  688A 0010        DATA 16
+1091  688C 6956        DATA APPLE+2
+1092  688E 0C80        DATA >C80     * 144 >90
+1093            
+1094  6890 06A0        BL   @VMBW0
+1094  6892 673A  
+1095  6894 0010        DATA 16
+1096  6896 6960        DATA TIMER+2
+1097  6898 0CC0        DATA >CC0     * 152 >98
+1098            
+1099            *      Load all of the color sets
+1100  689A 06A0        BL   @VMBW0
+1100  689C 673A  
+1101  689E 0020        DATA 32
+1102  68A0 6968        DATA COLORS
+1103  68A2 0380        DATA COLTBL
+1104                       
+1105            *      Load Sounds
+1106  68A4 06A0        BL   @VMBW0
+1106  68A6 673A  
+1107  68A8 0071        DATA 113
+1108            *       DATA 182
+1109  68AA 6988        DATA SOUNDS
+1110  68AC 1000        DATA >1000          
+1111                       
+1112  68AE 064A        DECT R10               * Move the stack pointer down
+1113  68B0 C2DA        MOV  *R10,R11          * Pop the return address off the stack
+1114  68B2 045B        RT                     * RETURN
+1115                       
+1116  68B4 007F BLOCK  DATA 127
+1117  68B6 FFFF        DATA >FFFF,>FFFF,>FFFF,>FFFF                                             
+1117  68B8 FFFF  
+1117  68BA FFFF  
+1117  68BC FFFF  
+1118  68BE 0080 DOOR   DATA 128
+1119  68C0 0000        DATA >0000,>0000,>0000,>0000                                             
+1119  68C2 0000  
+1119  68C4 0000  
+1119  68C6 0000  
+1120            
+1121  68C8 0081 HUP    DATA 129
+1122  68CA 1824        DATA >1824,>425A,>4242,>4242                                             
+1122  68CC 425A  
+1122  68CE 4242  
+1122  68D0 4242  
+1123  68D2 0082 HDOWN  DATA 130
+1124  68D4 4242        DATA >4242,>4242,>5A42,>2418                                             
+1124  68D6 4242  
+1124  68D8 5A42  
+1124  68DA 2418  
+1125  68DC 0083 HLEFT  DATA 131
+1126  68DE 003F        DATA >003F,>4090,>9040,>3F00                                             
+1126  68E0 4090  
+1126  68E2 9040  
+1126  68E4 3F00  
+1127  68E6 0084 HRGHT  DATA 132
+1128  68E8 00FC        DATA >00FC,>0209,>0902,>FC00                                             
+1128  68EA 0209  
+1128  68EC 0902  
+1128  68EE FC00  
+1129            
+1130  68F0 0085 TUP    DATA 133
+1131  68F2 4242        DATA >4242,>2418,>1818,>1818                                             
+1131  68F4 2418  
+1131  68F6 1818  
+1131  68F8 1818  
+1132  68FA 0086 TDOWN  DATA 134
+1133  68FC 1818        DATA >1818,>1818,>1824,>4242                                             
+1133  68FE 1818  
+1133  6900 1824  
+1133  6902 4242  
+1134  6904 0087 TLEFT  DATA 135
+1135  6906 00C0        DATA >00C0,>201F,>1F20,>C000                                             
+1135  6908 201F  
+1135  690A 1F20  
+1135  690C C000  
+1136  690E 0088 TRGHT  DATA 136
+1137  6910 0003        DATA >0003,>04F8,>F804,>0300                                             
+1137  6912 04F8  
+1137  6914 F804  
+1137  6916 0300  
+1138            
+1139  6918 0089 BUD    DATA 137
+1140  691A 4242        DATA >4242,>4242,>4242,>4242                                             
+1140  691C 4242  
+1140  691E 4242  
+1140  6920 4242  
+1141  6922 008A BLR    DATA 138
+1142  6924 00FF        DATA >00FF,>0000,>0000,>FF00                                             
+1142  6926 0000  
+1142  6928 0000  
+1142  692A FF00  
+1143  692C 008B LDUR   DATA 139
+1144  692E 001F        DATA >001F,>2040,>4040,>4342                                             
+1144  6930 2040  
+1144  6932 4040  
+1144  6934 4342  
+1145  6936 008C RDUL   DATA 140
+1146  6938 00F8        DATA >00F8,>0402,>0202,>C242                                             
+1146  693A 0402  
+1146  693C 0202  
+1146  693E C242  
+1147  6940 008D RUDL   DATA 141
+1148  6942 42C2        DATA >42C2,>0202,>0204,>F800                                             
+1148  6944 0202  
+1148  6946 0204  
+1148  6948 F800  
+1149  694A 008E LUDR   DATA 142
+1150  694C 4243        DATA >4243,>4040,>4020,>1F00                                             
+1150  694E 4040  
+1150  6950 4020  
+1150  6952 1F00  
+1151            
+1152  6954 0090 APPLE  DATA 144
+1153  6956 0872        DATA >0872,>DFBF,>FFFF,>7E66                                             
+1153  6958 DFBF  
+1153  695A FFFF  
+1153  695C 7E66  
+1154  695E 0098 TIMER  DATA 152
+1155  6960 AA55        DATA >AA55,>AA55,>AA55,>AA55                                             
+1155  6962 AA55  
+1155  6964 AA55  
+1155  6966 AA55  
+1156            
+1157  6968 F0F0 COLORS DATA >F0F0,>F0F0    * Sets 1-4   (0-31)
+1157  696A F0F0  
+1158  696C F0F0        DATA >F0F0,>F0F0    * Sets 5-8   (32-63)
+1158  696E F0F0  
+1159  6970 F0F0        DATA >F0F0,>F0F0    * Sets 9-12  (64-95)
+1159  6972 F0F0  
+1160  6974 F0F0        DATA >F0F0,>F0F0    * Sets 13-16 (96-127)
+1160  6976 F0F0  
+1161  6978 3030        DATA >3030,>80B0    * Sets 17-20 (128-159)
+1161  697A 80B0  
+1162  697C F0F0        DATA >F0F0,>F0F0    * Sets 21-24 (160-191)
+1162  697E F0F0  
+1163  6980 F0F0        DATA >F0F0,>F0F0    * Sets 25-28 (192-223)
+1163  6982 F0F0  
+1164  6984 F0F0        DATA >F0F0,>F0F0    * Sets 29-32 (224-255)
+1164  6986 F0F0  
+1165            
+1166            *------------------
+1167            * Move Sound
+1168            *------------------
+1169            *>1000
+1170  6988 0389 SOUNDS BYTE 3,>89,>3F,>92,2
+1170  698A 3F92  
+1170  698C 02    
+1171  698D 049F        BYTE 4,>9F,>BF,>DF,>FF,0    
+1171  698F BFDF  
+1171  6991 FF00  
+1172            * 11 Bytes
+1173            * CALL SOUND(33,110,0)
+1174            
+1175            *------------------
+1176            * Turn sound
+1177            *------------------
+1178            *>100B
+1179  6993 0380        BYTE 3,>80,>0E,>92,2
+1179  6995 0E92  
+1179  6997 02    
+1180  6998 049F        BYTE 4,>9F,>BF,>DF,>FF,0
+1180  699A BFDF  
+1180  699C FF00  
+1181            * 11 Bytes         
+1182            * CALL SOUND(33,500,0)
+1183            
+1184            *------------------
+1185            * Grow sound
+1186            *------------------
+1187            *>1016
+1188  699E 0380         BYTE 3,>80,>14,>95,2
+1188  69A0 1495  
+1188  69A2 02    
+1189  69A3 049F         BYTE 4,>9F,>BF,>DF,>FF,0
+1189  69A5 BFDF  
+1189  69A7 FF00  
+1190            * 11 Bytes         
+1191            * CALL SOUND(33,350,0)
+1192            
+1193            *------------------
+1194            * Crash sound
+1195            *------------------
+1196            *>1021
+1197  69A9 039F        BYTE 3,>9F,>E4,>F2,5
+1197  69AB E4F2  
+1197  69AD 05    
+1198  69AE 02E4        BYTE 2,>E4,>F0,12
+1198  69B0 F00C  
+1199  69B2 02E4        BYTE 2,>E4,>F2,10
+1199  69B4 F20A  
+1200  69B6 02E4        BYTE 2,>E4,>F4,8
+1200  69B8 F408  
+1201  69BA 02E4        BYTE 2,>E4,>F6,6
+1201  69BC F606  
+1202  69BE 02E4        BYTE 2,>E4,>F8,4
+1202  69C0 F804  
+1203  69C2 02E4        BYTE 2,>E4,>FA,2
+1203  69C4 FA02  
+1204  69C6 01FF        BYTE 1,>FF,0
+1204  69C8 00    
+1205            * 32 Bytes         
+1206            
+1207            *------------------
+1208            * Gulp sound
+1209            *------------------
+1210            *>1041
+1211  69C9 049F        BYTE 4,>9F,>BF,>DF,>FF,1
+1211  69CB BFDF  
+1211  69CD FF01  
+1212  69CF 0381        BYTE 3,>81,>07,>90,3
+1212  69D1 0790  
+1212  69D3 03    
+1213  69D4 028B        BYTE 2,>8B,>06,2
+1213  69D6 0602  
+1214  69D8 028F        BYTE 2,>8F,>05,2
+1214  69DA 0502  
+1215  69DC 019F        BYTE 1,>9F,4
+1215  69DE 04    
+1216  69DF 0389        BYTE 3,>89,>38,>01,3
+1216  69E1 3801  
+1216  69E3 03    
+1217  69E4 038B        BYTE 3,>8B,>38,>02,2
+1217  69E6 3802  
+1217  69E8 02    
+1218  69E9 038D        BYTE 3,>8D,>38,>03,2
+1218  69EB 3803  
+1218  69ED 02    
+1219  69EE 038F        BYTE 3,>8F,>38,>04,1
+1219  69F0 3804  
+1219  69F2 01    
+1220  69F3 049F        BYTE 4,>9F,>BF,>DF,>FF,0
+1220  69F5 BFDF  
+1220  69F7 FF00  
+1221            
+1222  69F9 0283        BYTE 2,>83,>39,1
+1222  69FB 3901  
+1223  69FD 0287        BYTE 2,>87,>39,1
+1223  69FF 3901  
+1224  6A01 028B        BYTE 2,>8B,>39,1
+1224  6A03 3901  
+1225  6A05 028F        BYTE 2,>8F,>39,1
+1225  6A07 3901  
+1226  6A09 0283        BYTE 2,>83,>3A,1
+1226  6A0B 3A01  
+1227  6A0D 0287        BYTE 2,>87,>3A,1
+1227  6A0F 3A01  
+1228  6A11 028B        BYTE 2,>8B,>3A,1
+1228  6A13 3A01  
+1229  6A15 028F        BYTE 2,>8F,>3A,1
+1229  6A17 3A01  
+1230  6A19 0283        BYTE 2,>83,>3B,1
+1230  6A1B 3B01  
+1231  6A1D 0287        BYTE 2,>87,>3B,1
+1231  6A1F 3B01  
+1232  6A21 028B        BYTE 2,>8B,>3B,1
+1232  6A23 3B01  
+1233  6A25 028F        BYTE 2,>8F,>3B,1
+1233  6A27 3B01  
+1234  6A29 0283        BYTE 2,>83,>3C,1
+1234  6A2B 3C01  
+1235  6A2D 0287        BYTE 2,>87,>3C,1
+1235  6A2F 3C01  
+1236  6A31 028B        BYTE 2,>8B,>3C,1
+1236  6A33 3C01  
+1237  6A35 0287        BYTE 2,>87,>3C,1
+1237  6A37 3C01  
+1238  6A39 038F        BYTE 3,>8F,>38,>90,3
+1238  6A3B 3890  
+1238  6A3D 03    
+1239  6A3E 049F        BYTE 4,>9F,>BF,>DF,>FF,0
+1239  6A40 BFDF  
+1239  6A42 FF00  
+1240            * 117 Bytes
+1241            
+1242            *****************************************************
+1243            * Press any key                                     *
+1244            *****************************************************
+1245  6A44 CE8B PRANKY MOV  R11,*R10+    * Push the return address onto the stack
+1246            
+1247  6A46 06A0        BL   @VMBW0
+1247  6A48 673A  
+1248  6A4A 001C        DATA 28
+1249  6A4C 6A70        DATA PAK1
+1250  6A4E 02A2        DATA 674
+1251             
+1252  6A50 020E        LI   R14,>FFFF    * Pause for a second to allow the keyboard
+1252  6A52 FFFF  
+1253  6A54 060E KLOOP1 DEC  R14          * buffer to clear.
+1254  6A56 16FE        JNE  KLOOP1
+1255                       
+1256  6A58 D820 KEYA1  MOVB @HEXFF,@KEY
+1256  6A5A 604E  
+1256  6A5C 8375  
+1257  6A5E 06A0        BL   @KSCAN       * WAIT FOR KEY DEPRESS.
+1257  6A60 66AC  
+1258  6A62 9820        CB   @KEY,@HEXFF
+1258  6A64 8375  
+1258  6A66 604E  
+1259  6A68 13F7        JEQ  KEYA1
+1260             
+1261  6A6A 064A        DECT R10          * Move the stack pointer down
+1262  6A6C C2DA        MOV  *R10,R11     * Pop the return address off the stack
+1263  6A6E 045B        RT                * RETURN
+1264                       
+1265  6A70 5072 PAK1   TEXT 'Press any key to continue...'
+1265  6A72 6573  
+1265  6A74 7320  
+1265  6A76 616E  
+1265  6A78 7920  
+1265  6A7A 6B65  
+1265  6A7C 7920  
+1265  6A7E 746F  
+1265  6A80 2063  
+1265  6A82 6F6E  
+1265  6A84 7469  
+1265  6A86 6E75  
+1265  6A88 652E  
+1265  6A8A 2E2E  
+1266            
+1267            *****************************************************
+1268            * Game Over                                         *
+1269            *****************************************************
+1270  6A8C CE8B GMOMSG MOV  R11,*R10+    * Push the return address onto the stack
+1271            
+1272  6A8E 06A0        BL   @VMBW0
+1272  6A90 673A  
+1273  6A92 0012        DATA 18
+1274  6A94 6AC6        DATA GOMSG1
+1275  6A96 00A8        DATA 168
+1276             
+1277  6A98 06A0        BL   @VMBW0
+1277  6A9A 673A  
+1278  6A9C 0014        DATA 20
+1279  6A9E 6AD8        DATA GOMSG2
+1280  6AA0 00C7        DATA 199
+1281             
+1282  6AA2 06A0        BL   @VMBW0
+1282  6AA4 673A  
+1283  6AA6 0014        DATA 20
+1284  6AA8 6AEC        DATA GOMSG3
+1285  6AAA 00E7        DATA 231
+1286             
+1287  6AAC 06A0        BL   @VMBW0
+1287  6AAE 673A  
+1288  6AB0 0014        DATA 20
+1289  6AB2 6B00        DATA GOMSG4
+1290  6AB4 0107        DATA 263
+1291             
+1292  6AB6 06A0        BL   @VMBW0
+1292  6AB8 673A  
+1293  6ABA 0012        DATA 18
+1294  6ABC 6B14        DATA GOMSG5
+1295  6ABE 0128        DATA 296
+1296             
+1297  6AC0 064A        DECT R10          * Move the stack pointer down
+1298  6AC2 C2DA        MOV  *R10,R11     * Pop the return address off the stack
+1299  6AC4 045B        RT                * RETURN
+1300                       
+1301            *      -------------
+1302            *      GAME OVER
+1303            *      -------------
+1304  6AC6 2A2A GOMSG1 TEXT '******************'
+1304  6AC8 2A2A  
+1304  6ACA 2A2A  
+1304  6ACC 2A2A  
+1304  6ACE 2A2A  
+1304  6AD0 2A2A  
+1304  6AD2 2A2A  
+1304  6AD4 2A2A  
+1304  6AD6 2A2A  
+1305  6AD8 2A20 GOMSG2 TEXT '* Congratulations! *'
+1305  6ADA 436F  
+1305  6ADC 6E67  
+1305  6ADE 7261  
+1305  6AE0 7475  
+1305  6AE2 6C61  
+1305  6AE4 7469  
+1305  6AE6 6F6E  
+1305  6AE8 7321  
+1305  6AEA 202A  
+1306  6AEC 2A20 GOMSG3 TEXT '*  You Completed   *'                                                      
+1306  6AEE 2059  
+1306  6AF0 6F75  
+1306  6AF2 2043  
+1306  6AF4 6F6D  
+1306  6AF6 706C  
+1306  6AF8 6574  
+1306  6AFA 6564  
+1306  6AFC 2020  
+1306  6AFE 202A  
+1307  6B00 2A20 GOMSG4 TEXT '*   Every Level!   *'
+1307  6B02 2020  
+1307  6B04 4576  
+1307  6B06 6572  
+1307  6B08 7920  
+1307  6B0A 4C65  
+1307  6B0C 7665  
+1307  6B0E 6C21  
+1307  6B10 2020  
+1307  6B12 202A  
+1308  6B14 2A2A GOMSG5 TEXT '******************'
+1308  6B16 2A2A  
+1308  6B18 2A2A  
+1308  6B1A 2A2A  
+1308  6B1C 2A2A  
+1308  6B1E 2A2A  
+1308  6B20 2A2A  
+1308  6B22 2A2A  
+1308  6B24 2A2A  
+1309            
+1310            *****************************************************
+1311            * Game Over                                         *
+1312            *****************************************************
+1313  6B26 CE8B GMLMSG MOV  R11,*R10+    * Push the return address onto the stack
+1314            
+1315  6B28 06A0        BL   @VMBW0
+1315  6B2A 673A  
+1316  6B2C 0010        DATA 16
+1317  6B2E 6B60        DATA GOLIV1
+1318  6B30 00A8        DATA 168
+1319             
+1320  6B32 06A0        BL   @VMBW0
+1320  6B34 673A  
+1321  6B36 0012        DATA 18
+1322  6B38 6B70        DATA GOLIV2
+1323  6B3A 00C7        DATA 199
+1324             
+1325  6B3C 06A0        BL   @VMBW0
+1325  6B3E 673A  
+1326  6B40 0012        DATA 18
+1327  6B42 6B82        DATA GOLIV3
+1328  6B44 00E7        DATA 231
+1329             
+1330  6B46 06A0        BL   @VMBW0
+1330  6B48 673A  
+1331  6B4A 0012        DATA 18
+1332  6B4C 6B94        DATA GOLIV4
+1333  6B4E 0107        DATA 263
+1334             
+1335  6B50 06A0        BL   @VMBW0
+1335  6B52 673A  
+1336  6B54 0010        DATA 16
+1337  6B56 6BA6        DATA GOLIV5
+1338  6B58 0128        DATA 296
+1339             
+1340  6B5A 064A        DECT R10          * Move the stack pointer down
+1341  6B5C C2DA        MOV  *R10,R11     * Pop the return address off the stack
+1342  6B5E 045B        RT                * RETURN
+1343                       
+1344            *      -------------
+1345            *      GAME OVER
+1346            *      -------------
+1347  6B60 2A2A GOLIV1 TEXT '****************'
+1347  6B62 2A2A  
+1347  6B64 2A2A  
+1347  6B66 2A2A  
+1347  6B68 2A2A  
+1347  6B6A 2A2A  
+1347  6B6C 2A2A  
+1347  6B6E 2A2A  
+1348  6B70 2A20 GOLIV2 TEXT '*  You used all  *'
+1348  6B72 2059  
+1348  6B74 6F75  
+1348  6B76 2075  
+1348  6B78 7365  
+1348  6B7A 6420  
+1348  6B7C 616C  
+1348  6B7E 6C20  
+1348  6B80 202A  
+1349  6B82 2A20 GOLIV3 TEXT '* of your lives. *'                                                        
+1349  6B84 6F66  
+1349  6B86 2079  
+1349  6B88 6F75  
+1349  6B8A 7220  
+1349  6B8C 6C69  
+1349  6B8E 7665  
+1349  6B90 732E  
+1349  6B92 202A  
+1350  6B94 2A20 GOLIV4 TEXT '*   GAME OVER.   *'
+1350  6B96 2020  
+1350  6B98 4741  
+1350  6B9A 4D45  
+1350  6B9C 204F  
+1350  6B9E 5645  
+1350  6BA0 522E  
+1350  6BA2 2020  
+1350  6BA4 202A  
+1351  6BA6 2A2A GOLIV5 TEXT '****************'
+1351  6BA8 2A2A  
+1351  6BAA 2A2A  
+1351  6BAC 2A2A  
+1351  6BAE 2A2A  
+1351  6BB0 2A2A  
+1351  6BB2 2A2A  
+1351  6BB4 2A2A  
+1352            
+1353            **                                                                              
+1354            * Standard Character Set 1 - "Space" 8x8                                        
+1355            *                                                                               
+1356            SCS1                                                                            
+1357  6BB6 0000        DATA >0000,>0000,>0000,>0000    ;
+1357  6BB8 0000  
+1357  6BBA 0000  
+1357  6BBC 0000  
+1358  6BBE 0010        DATA >0010,>1010,>1010,>0010    ;
+1358  6BC0 1010  
+1358  6BC2 1010  
+1358  6BC4 0010  
+1359  6BC6 0028        DATA >0028,>2828,>0000,>0000    ;
+1359  6BC8 2828  
+1359  6BCA 0000  
+1359  6BCC 0000  
+1360  6BCE 0028        DATA >0028,>287C,>287C,>2828    ;
+1360  6BD0 287C  
+1360  6BD2 287C  
+1360  6BD4 2828  
+1361  6BD6 0038        DATA >0038,>5450,>3814,>5438    ;
+1361  6BD8 5450  
+1361  6BDA 3814  
+1361  6BDC 5438  
+1362  6BDE 0060        DATA >0060,>6408,>1020,>4C0C    ;
+1362  6BE0 6408  
+1362  6BE2 1020  
+1362  6BE4 4C0C  
+1363  6BE6 0020        DATA >0020,>5050,>2054,>4834    ;
+1363  6BE8 5050  
+1363  6BEA 2054  
+1363  6BEC 4834  
+1364  6BEE 0008        DATA >0008,>0810,>0000,>0000    ;
+1364  6BF0 0810  
+1364  6BF2 0000  
+1364  6BF4 0000  
+1365  6BF6 0008        DATA >0008,>1020,>2020,>1008    ;
+1365  6BF8 1020  
+1365  6BFA 2020  
+1365  6BFC 1008  
+1366  6BFE 0020        DATA >0020,>1008,>0808,>1020    ;
+1366  6C00 1008  
+1366  6C02 0808  
+1366  6C04 1020  
+1367  6C06 0000        DATA >0000,>2810,>7C10,>2800    ;
+1367  6C08 2810  
+1367  6C0A 7C10  
+1367  6C0C 2800  
+1368  6C0E 0000        DATA >0000,>1010,>7C10,>1000    ;
+1368  6C10 1010  
+1368  6C12 7C10  
+1368  6C14 1000  
+1369  6C16 0000        DATA >0000,>0000,>0030,>1020    ;
+1369  6C18 0000  
+1369  6C1A 0030  
+1369  6C1C 1020  
+1370  6C1E 0000        DATA >0000,>0000,>7C00,>0000    ;
+1370  6C20 0000  
+1370  6C22 7C00  
+1370  6C24 0000  
+1371  6C26 0000        DATA >0000,>0000,>0000,>3030    ;
+1371  6C28 0000  
+1371  6C2A 0000  
+1371  6C2C 3030  
+1372  6C2E 0000        DATA >0000,>0408,>1020,>4000    ;
+1372  6C30 0408  
+1372  6C32 1020  
+1372  6C34 4000  
+1373  6C36 0038        DATA >0038,>4444,>4444,>4438    ;
+1373  6C38 4444  
+1373  6C3A 4444  
+1373  6C3C 4438  
+1374  6C3E 0010        DATA >0010,>3010,>1010,>1038    ;
+1374  6C40 3010  
+1374  6C42 1010  
+1374  6C44 1038  
+1375  6C46 0038        DATA >0038,>4404,>0810,>207C    ;
+1375  6C48 4404  
+1375  6C4A 0810  
+1375  6C4C 207C  
+1376  6C4E 0038        DATA >0038,>4404,>1804,>4438    ;
+1376  6C50 4404  
+1376  6C52 1804  
+1376  6C54 4438  
+1377  6C56 0008        DATA >0008,>1828,>487C,>0808    ;
+1377  6C58 1828  
+1377  6C5A 487C  
+1377  6C5C 0808  
+1378  6C5E 007C        DATA >007C,>4078,>0404,>4438    ;
+1378  6C60 4078  
+1378  6C62 0404  
+1378  6C64 4438  
+1379  6C66 0018        DATA >0018,>2040,>7844,>4438    ;
+1379  6C68 2040  
+1379  6C6A 7844  
+1379  6C6C 4438  
+1380  6C6E 007C        DATA >007C,>0408,>1020,>2020    ;
+1380  6C70 0408  
+1380  6C72 1020  
+1380  6C74 2020  
+1381  6C76 0038        DATA >0038,>4444,>3844,>4438    ;
+1381  6C78 4444  
+1381  6C7A 3844  
+1381  6C7C 4438  
+1382  6C7E 0038        DATA >0038,>4444,>3C04,>0830    ;
+1382  6C80 4444  
+1382  6C82 3C04  
+1382  6C84 0830  
+1383  6C86 0000        DATA >0000,>3030,>0030,>3000    ;
+1383  6C88 3030  
+1383  6C8A 0030  
+1383  6C8C 3000  
+1384  6C8E 0000        DATA >0000,>3030,>0030,>1020    ;
+1384  6C90 3030  
+1384  6C92 0030  
+1384  6C94 1020  
+1385  6C96 0008        DATA >0008,>1020,>4020,>1008    ;
+1385  6C98 1020  
+1385  6C9A 4020  
+1385  6C9C 1008  
+1386  6C9E 0000        DATA >0000,>007C,>007C,>0000    ;
+1386  6CA0 007C  
+1386  6CA2 007C  
+1386  6CA4 0000  
+1387  6CA6 0020        DATA >0020,>1008,>0408,>1020    ;
+1387  6CA8 1008  
+1387  6CAA 0408  
+1387  6CAC 1020  
+1388  6CAE 0038        DATA >0038,>4404,>0810,>0010    ;
+1388  6CB0 4404  
+1388  6CB2 0810  
+1388  6CB4 0010  
+1389  6CB6 0038        DATA >0038,>445C,>545C,>4038    ;
+1389  6CB8 445C  
+1389  6CBA 545C  
+1389  6CBC 4038  
+1390  6CBE 0038        DATA >0038,>4444,>7C44,>4444    ;
+1390  6CC0 4444  
+1390  6CC2 7C44  
+1390  6CC4 4444  
+1391  6CC6 0078        DATA >0078,>2424,>3824,>2478    ;
+1391  6CC8 2424  
+1391  6CCA 3824  
+1391  6CCC 2478  
+1392  6CCE 0038        DATA >0038,>4440,>4040,>4438    ;
+1392  6CD0 4440  
+1392  6CD2 4040  
+1392  6CD4 4438  
+1393  6CD6 0078        DATA >0078,>2424,>2424,>2478    ;
+1393  6CD8 2424  
+1393  6CDA 2424  
+1393  6CDC 2478  
+1394  6CDE 007C        DATA >007C,>4040,>7840,>407C    ;
+1394  6CE0 4040  
+1394  6CE2 7840  
+1394  6CE4 407C  
+1395  6CE6 007C        DATA >007C,>4040,>7840,>4040    ;
+1395  6CE8 4040  
+1395  6CEA 7840  
+1395  6CEC 4040  
+1396  6CEE 003C        DATA >003C,>4040,>5C44,>4438    ;
+1396  6CF0 4040  
+1396  6CF2 5C44  
+1396  6CF4 4438  
+1397  6CF6 0044        DATA >0044,>4444,>7C44,>4444    ;
+1397  6CF8 4444  
+1397  6CFA 7C44  
+1397  6CFC 4444  
+1398  6CFE 0038        DATA >0038,>1010,>1010,>1038    ;
+1398  6D00 1010  
+1398  6D02 1010  
+1398  6D04 1038  
+1399  6D06 0004        DATA >0004,>0404,>0404,>4438    ;
+1399  6D08 0404  
+1399  6D0A 0404  
+1399  6D0C 4438  
+1400  6D0E 0044        DATA >0044,>4850,>6050,>4844    ;
+1400  6D10 4850  
+1400  6D12 6050  
+1400  6D14 4844  
+1401  6D16 0040        DATA >0040,>4040,>4040,>407C    ;
+1401  6D18 4040  
+1401  6D1A 4040  
+1401  6D1C 407C  
+1402  6D1E 0044        DATA >0044,>6C54,>5444,>4444    ;
+1402  6D20 6C54  
+1402  6D22 5444  
+1402  6D24 4444  
+1403  6D26 0044        DATA >0044,>6464,>544C,>4C44    ;
+1403  6D28 6464  
+1403  6D2A 544C  
+1403  6D2C 4C44  
+1404  6D2E 007C        DATA >007C,>4444,>4444,>447C    ;
+1404  6D30 4444  
+1404  6D32 4444  
+1404  6D34 447C  
+1405  6D36 0078        DATA >0078,>4444,>7840,>4040    ;
+1405  6D38 4444  
+1405  6D3A 7840  
+1405  6D3C 4040  
+1406  6D3E 0038        DATA >0038,>4444,>4454,>4834    ;
+1406  6D40 4444  
+1406  6D42 4454  
+1406  6D44 4834  
+1407  6D46 0078        DATA >0078,>4444,>7850,>4844    ;
+1407  6D48 4444  
+1407  6D4A 7850  
+1407  6D4C 4844  
+1408  6D4E 0038        DATA >0038,>4440,>3804,>4438    ;
+1408  6D50 4440  
+1408  6D52 3804  
+1408  6D54 4438  
+1409  6D56 007C        DATA >007C,>1010,>1010,>1010    ;
+1409  6D58 1010  
+1409  6D5A 1010  
+1409  6D5C 1010  
+1410  6D5E 0044        DATA >0044,>4444,>4444,>4438    ;
+1410  6D60 4444  
+1410  6D62 4444  
+1410  6D64 4438  
+1411  6D66 0044        DATA >0044,>4444,>2828,>1010    ;
+1411  6D68 4444  
+1411  6D6A 2828  
+1411  6D6C 1010  
+1412  6D6E 0044        DATA >0044,>4444,>5454,>5428    ;
+1412  6D70 4444  
+1412  6D72 5454  
+1412  6D74 5428  
+1413  6D76 0044        DATA >0044,>4428,>1028,>4444    ;
+1413  6D78 4428  
+1413  6D7A 1028  
+1413  6D7C 4444  
+1414  6D7E 0044        DATA >0044,>4428,>1010,>1010    ;
+1414  6D80 4428  
+1414  6D82 1010  
+1414  6D84 1010  
+1415  6D86 007C        DATA >007C,>0408,>1020,>407C    ;
+1415  6D88 0408  
+1415  6D8A 1020  
+1415  6D8C 407C  
+1416  6D8E 0038        DATA >0038,>2020,>2020,>2038    ;
+1416  6D90 2020  
+1416  6D92 2020  
+1416  6D94 2038  
+1417  6D96 0000        DATA >0000,>4020,>1008,>0400    ;
+1417  6D98 4020  
+1417  6D9A 1008  
+1417  6D9C 0400  
+1418  6D9E 0038        DATA >0038,>0808,>0808,>0838    ;
+1418  6DA0 0808  
+1418  6DA2 0808  
+1418  6DA4 0838  
+1419  6DA6 0000        DATA >0000,>1028,>4400,>0000    ;
+1419  6DA8 1028  
+1419  6DAA 4400  
+1419  6DAC 0000  
+1420  6DAE 0000        DATA >0000,>0000,>0000,>007C    ;
+1420  6DB0 0000  
+1420  6DB2 0000  
+1420  6DB4 007C  
+1421  6DB6 0000        DATA >0000,>2010,>0800,>0000    ;
+1421  6DB8 2010  
+1421  6DBA 0800  
+1421  6DBC 0000  
+1422  6DBE 0000        DATA >0000,>0038,>447C,>4444    ;
+1422  6DC0 0038  
+1422  6DC2 447C  
+1422  6DC4 4444  
+1423  6DC6 0000        DATA >0000,>0078,>2438,>2478    ;
+1423  6DC8 0078  
+1423  6DCA 2438  
+1423  6DCC 2478  
+1424  6DCE 0000        DATA >0000,>003C,>4040,>403C    ;
+1424  6DD0 003C  
+1424  6DD2 4040  
+1424  6DD4 403C  
+1425  6DD6 0000        DATA >0000,>0078,>2424,>2478    ;
+1425  6DD8 0078  
+1425  6DDA 2424  
+1425  6DDC 2478  
+1426  6DDE 0000        DATA >0000,>007C,>4078,>407C    ;
+1426  6DE0 007C  
+1426  6DE2 4078  
+1426  6DE4 407C  
+1427  6DE6 0000        DATA >0000,>007C,>4078,>4040    ;
+1427  6DE8 007C  
+1427  6DEA 4078  
+1427  6DEC 4040  
+1428  6DEE 0000        DATA >0000,>003C,>405C,>4438    ;
+1428  6DF0 003C  
+1428  6DF2 405C  
+1428  6DF4 4438  
+1429  6DF6 0000        DATA >0000,>0044,>447C,>4444    ;
+1429  6DF8 0044  
+1429  6DFA 447C  
+1429  6DFC 4444  
+1430  6DFE 0000        DATA >0000,>0038,>1010,>1038    ;
+1430  6E00 0038  
+1430  6E02 1010  
+1430  6E04 1038  
+1431  6E06 0000        DATA >0000,>0008,>0808,>4830    ;
+1431  6E08 0008  
+1431  6E0A 0808  
+1431  6E0C 4830  
+1432  6E0E 0000        DATA >0000,>0024,>2830,>2824    ;
+1432  6E10 0024  
+1432  6E12 2830  
+1432  6E14 2824  
+1433  6E16 0000        DATA >0000,>0040,>4040,>407C    ;
+1433  6E18 0040  
+1433  6E1A 4040  
+1433  6E1C 407C  
+1434  6E1E 0000        DATA >0000,>0044,>6C54,>4444    ;
+1434  6E20 0044  
+1434  6E22 6C54  
+1434  6E24 4444  
+1435  6E26 0000        DATA >0000,>0044,>6454,>4C44    ;
+1435  6E28 0044  
+1435  6E2A 6454  
+1435  6E2C 4C44  
+1436  6E2E 0000        DATA >0000,>007C,>4444,>447C    ;
+1436  6E30 007C  
+1436  6E32 4444  
+1436  6E34 447C  
+1437  6E36 0000        DATA >0000,>0078,>4478,>4040    ;
+1437  6E38 0078  
+1437  6E3A 4478  
+1437  6E3C 4040  
+1438  6E3E 0000        DATA >0000,>0038,>4454,>4834    ;
+1438  6E40 0038  
+1438  6E42 4454  
+1438  6E44 4834  
+1439  6E46 0000        DATA >0000,>0078,>4478,>4844    ;
+1439  6E48 0078  
+1439  6E4A 4478  
+1439  6E4C 4844  
+1440  6E4E 0000        DATA >0000,>003C,>4038,>0478    ;
+1440  6E50 003C  
+1440  6E52 4038  
+1440  6E54 0478  
+1441  6E56 0000        DATA >0000,>007C,>1010,>1010    ;
+1441  6E58 007C  
+1441  6E5A 1010  
+1441  6E5C 1010  
+1442  6E5E 0000        DATA >0000,>0044,>4444,>4438    ;
+1442  6E60 0044  
+1442  6E62 4444  
+1442  6E64 4438  
+1443  6E66 0000        DATA >0000,>0044,>4428,>2810    ;
+1443  6E68 0044  
+1443  6E6A 4428  
+1443  6E6C 2810  
+1444  6E6E 0000        DATA >0000,>0044,>4454,>5428    ;
+1444  6E70 0044  
+1444  6E72 4454  
+1444  6E74 5428  
+1445  6E76 0000        DATA >0000,>0044,>2810,>2844    ;
+1445  6E78 0044  
+1445  6E7A 2810  
+1445  6E7C 2844  
+1446  6E7E 0000        DATA >0000,>0044,>2810,>1010    ;
+1446  6E80 0044  
+1446  6E82 2810  
+1446  6E84 1010  
+1447  6E86 0000        DATA >0000,>007C,>0810,>207C    ;
+1447  6E88 007C  
+1447  6E8A 0810  
+1447  6E8C 207C  
+1448  6E8E 0018        DATA >0018,>2020,>4020,>2018    ;
+1448  6E90 2020  
+1448  6E92 4020  
+1448  6E94 2018  
+1449  6E96 0010        DATA >0010,>1010,>0010,>1010    ;
+1449  6E98 1010  
+1449  6E9A 0010  
+1449  6E9C 1010  
+1450  6E9E 0030        DATA >0030,>0808,>0408,>0830    ;
+1450  6EA0 0808  
+1450  6EA2 0408  
+1450  6EA4 0830  
+1451  6EA6 0000        DATA >0000,>2054,>0800,>0000    ;                         
+1451  6EA8 2054  
+1451  6EAA 0800  
+1451  6EAC 0000  
+1452            SCS1E 
+1453            LC1
+1454  6EAE 0000        DATA >0000,>0038,>043C,>643C       ; a - 97  >61
+1454  6EB0 0038  
+1454  6EB2 043C  
+1454  6EB4 643C  
+1455  6EB6 0040        DATA >0040,>4040,>7844,>4478       ; b - 98  >62
+1455  6EB8 4040  
+1455  6EBA 7844  
+1455  6EBC 4478  
+1456  6EBE 0000        DATA >0000,>001C,>2020,>201C       ; c - 99  >63
+1456  6EC0 001C  
+1456  6EC2 2020  
+1456  6EC4 201C  
+1457  6EC6 0004        DATA >0004,>0404,>3C44,>443C       ; d - 100 >64
+1457  6EC8 0404  
+1457  6ECA 3C44  
+1457  6ECC 443C  
+1458  6ECE 0000        DATA >0000,>0038,>4478,>4030       ; e - 101 >65
+1458  6ED0 0038  
+1458  6ED2 4478  
+1458  6ED4 4030  
+1459  6ED6 0018        DATA >0018,>2420,>7020,>2020       ; f - 102 >66
+1459  6ED8 2420  
+1459  6EDA 7020  
+1459  6EDC 2020  
+1460  6EDE 0000        DATA >0000,>0038,>4430,>0438       ; g - 103 >67
+1460  6EE0 0038  
+1460  6EE2 4430  
+1460  6EE4 0438  
+1461  6EE6 0040        DATA >0040,>4040,>7844,>4444       ; h - 104 >68
+1461  6EE8 4040  
+1461  6EEA 7844  
+1461  6EEC 4444  
+1462  6EEE 0010        DATA >0010,>0010,>1010,>1010       ; i - 105 >69
+1462  6EF0 0010  
+1462  6EF2 1010  
+1462  6EF4 1010  
+1463  6EF6 0004        DATA >0004,>0004,>0404,>2418       ; j - 106 >6A
+1463  6EF8 0004  
+1463  6EFA 0404  
+1463  6EFC 2418  
+1464  6EFE 0020        DATA >0020,>2024,>2830,>2824       ; k - 107 >6B
+1464  6F00 2024  
+1464  6F02 2830  
+1464  6F04 2824  
+1465  6F06 0010        DATA >0010,>1010,>1010,>1010       ; l - 108 >6C
+1465  6F08 1010  
+1465  6F0A 1010  
+1465  6F0C 1010  
+1466  6F0E 0000        DATA >0000,>0068,>5454,>4444       ; m - 109 >6D
+1466  6F10 0068  
+1466  6F12 5454  
+1466  6F14 4444  
+1467  6F16 0000        DATA >0000,>0058,>6444,>4444       ; n - 110 >6E
+1467  6F18 0058  
+1467  6F1A 6444  
+1467  6F1C 4444  
+1468  6F1E 0000        DATA >0000,>0038,>4444,>4438       ; o - 111 >6F
+1468  6F20 0038  
+1468  6F22 4444  
+1468  6F24 4438  
+1469  6F26 0000        DATA >0000,>0078,>4478,>4040       ; p - 112 >70
+1469  6F28 0078  
+1469  6F2A 4478  
+1469  6F2C 4040  
+1470  6F2E 0000        DATA >0000,>0030,>4430,>0404       ; q - 113 >71
+1470  6F30 0030  
+1470  6F32 4430  
+1470  6F34 0404  
+1471  6F36 0000        DATA >0000,>0058,>6440,>4040       ; r - 114 >72
+1471  6F38 0058  
+1471  6F3A 6440  
+1471  6F3C 4040  
+1472  6F3E 0000        DATA >0000,>0030,>4038,>0478       ; s - 115 >73
+1472  6F40 0030  
+1472  6F42 4038  
+1472  6F44 0478  
+1473  6F46 0010        DATA >0010,>1038,>1010,>1000       ; t - 116 >74
+1473  6F48 1038  
+1473  6F4A 1010  
+1473  6F4C 1000  
+1474  6F4E 0000        DATA >0000,>0044,>4444,>4438       ; u - 117 >75
+1474  6F50 0044  
+1474  6F52 4444  
+1474  6F54 4438  
+1475  6F56 0000        DATA >0000,>0044,>4428,>2810       ; v - 118 >76
+1475  6F58 0044  
+1475  6F5A 4428  
+1475  6F5C 2810  
+1476  6F5E 0000        DATA >0000,>0044,>4454,>5428       ; w - 119 >77
+1476  6F60 0044  
+1476  6F62 4454  
+1476  6F64 5428  
+1477  6F66 0000        DATA >0000,>0044,>2810,>2844       ; x - 120 >78
+1477  6F68 0044  
+1477  6F6A 2810  
+1477  6F6C 2844  
+1478  6F6E 0000        DATA >0000,>0044,>443C,>0438       ; y - 121 >79
+1478  6F70 0044  
+1478  6F72 443C  
+1478  6F74 0438  
+1479  6F76 0000        DATA >0000,>003C,>0408,>103C       ; z - 122 >7A
+1479  6F78 003C  
+1479  6F7A 0408  
+1479  6F7C 103C  
+1480            LC1E     
+1481                                                                                 
+1482                       EVEN
+1483  6F7E 0000 SLAST  END   START
+1483            
+
+
+ Assembly Complete - Errors: 0,  Warnings: 0
+
+
+ ------ Symbol Listing ------
+
+ ADVTM0 ABS:622A ADVTM0
+ ADVTM1 ABS:623A ADVTM1
+ ADVTM2 ABS:6246 ADVTM2
+ ADVTM3 ABS:6252 ADVTM3
+ ADVTMR ABS:61E6 ADVTMR
+ APPLE  ABS:6954 APPLE
+ ASCDEC ABS:8320 ASCDEC
+ ASCHEX ABS:8323 ASCHEX
+ ATEAPP ABS:6332 ATEAPP
+ B129   ABS:6398 B129
+ B133   ABS:63D6 B133
+ B137   ABS:63D7 B137
+ B65    ABS:6570 B65
+ BDRNR  ABS:649C BDRNR
+ BDTBL  ABS:60C0 BDTBL
+ BLOCK  ABS:68B4 BLOCK
+ BLR    ABS:6922 BLR
+ BORDER ABS:6482 BORDER
+ BUD    ABS:6918 BUD
+ CHKOBS ABS:62FA CHKOBS
+ CLEAR  ABS:65F6 CLEAR
+ CLROLD ABS:6464 CLROLD
+ CLRTM1 ABS:64F8 CLRTM1
+ CLRTMR ABS:64CA CLRTMR
+ COLORS ABS:6968 COLORS
+ COLTBL ABS:0380 COLTBL
+ CURSIZ ABS:8348 CURSIZ
+ DECAPP ABS:6350 DECAPP
+ DELAY  ABS:835A DELAY
+ DIR    ABS:8343 DIR
+ DIRTBL ABS:6058 DIRTBL
+ DL00   ABS:652E DL00
+ DODLY  ABS:6360 DODLY
+ DOOR   ABS:68BE DOOR
+ DRAWAP ABS:635C DRAWAP
+ DRBODY ABS:63CC DRBODY
+ DRHEAD ABS:6378 DRHEAD
+ DRTAIL ABS:645E DRTAIL
+ DRWLVL ABS:651E DRWLVL
+ ENDPOS ABS:6052 ENDPOS
+ FALSE  ABS:604D FALSE
+ GLOVER ABS:61DA GLOVER
+ GMLMSG ABS:6B26 GMLMSG
+ GMOMSG ABS:6A8C GMOMSG
+ GMOVER ABS:61D0 GMOVER
+ GMSTRT ABS:60F8 GMSTRT
+ GOLIV1 ABS:6B60 GOLIV1
+ GOLIV2 ABS:6B70 GOLIV2
+ GOLIV3 ABS:6B82 GOLIV3
+ GOLIV4 ABS:6B94 GOLIV4
+ GOLIV5 ABS:6BA6 GOLIV5
+ GOMSG1 ABS:6AC6 GOMSG1
+ GOMSG2 ABS:6AD8 GOMSG2
+ GOMSG3 ABS:6AEC GOMSG3
+ GOMSG4 ABS:6B00 GOMSG4
+ GOMSG5 ABS:6B14 GOMSG5
+ GOTIME ABS:6194 GOTIME
+ GPLWS  ABS:83E0 GPLWS
+ GROWSZ ABS:6282 GROWSZ
+ HDOWN  ABS:68D2 HDOWN
+ HEX40  ABS:66D8 HEX40
+ HEXFF  ABS:604E HEXFF
+ HLEFT  ABS:68DC HLEFT
+ HMVDWN ABS:62E8 HMVDWN
+ HMVLFT ABS:62E0 HMVLFT
+ HMVRGT ABS:62D8 HMVRGT
+ HMVUP  ABS:62F2 HMVUP
+ HRGHT  ABS:68E6 HRGHT
+ HUP    ABS:68C8 HUP
+ INIT   ABS:60E8 INIT
+ KEY    ABS:8375 KEY
+ KEYA1  ABS:6A58 KEYA1
+ KEYPRS ABS:8345 KEYPRS
+ KILLED ABS:6318 KILLED
+ KLOOP0 ABS:6108 KLOOP0
+ KLOOP1 ABS:6A54 KLOOP1
+ KSCAN  ABS:66AC KSCAN
+ LASTKY ABS:8342 LASTKY
+ LC1    ABS:6EAE LC1
+ LC1E   ABS:6F7E LC1E
+ LDUR   ABS:692C LDUR
+ LEVELS ABS:6544 LEVELS
+ LOOP   ABS:602C LOOP
+ LOOP01 ABS:61BE LOOP01
+ LOOP02 ABS:61C6 LOOP02
+ LSCS   ABS:67CC LSCS
+ LUDR   ABS:694A LUDR
+ LVL01  ABS:654C LVL01
+ LVL02  ABS:6554 LVL02
+ LVL03  ABS:655C LVL03
+ LVLEND ABS:656C LVLEND
+ MAIN   ABS:6024 MAIN
+ MOVBD  ABS:639A MOVBD
+ MOVBD0 ABS:63D0 MOVBD0
+ MOVHD  ABS:629C MOVHD
+ MOVHD0 ABS:62BE MOVHD0
+ MOVHD1 ABS:6382 MOVHD1
+ MOVSNK ABS:6258 MOVSNK
+ MOVTL  ABS:63DA MOVTL
+ MOVTL0 ABS:63FC MOVTL0
+ MOVTL1 ABS:6434 MOVTL1
+ MOVTL2 ABS:6474 MOVTL2
+ MOVTL3 ABS:6478 MOVTL3
+ MSCAN0 ABS:66D6 MSCAN0
+ MVSNK0 ABS:6296 MVSNK0
+ NEXTLF ABS:8352 NEXTLF
+ NLFLAG ABS:8353 NLFLAG
+ NXTLF  ABS:6108 NXTLF
+ NXTLF1 ABS:6144 NXTLF1
+ NXTLF2 ABS:61AC NXTLF2
+ NXTLVL ABS:6328 NXTLVL
+ OLDHDC ABS:834A OLDHDC
+ OLDHDP ABS:834C OLDHDP
+ OLDTLC ABS:834E OLDTLC
+ OLDTLP ABS:8350 OLDTLP
+ OPENDR ABS:6388 OPENDR
+ PAK1   ABS:6A70 PAK1
+ PLOT01 ABS:6616 PLOT01
+ PLTAPL ABS:6612 PLTAPL
+ PRANKY ABS:6A44 PRANKY
+ PROG   ABS:600E PROG
+ R0     ABS:0000 R0
+ R0HB   ABS:8300 R0HB
+ R0LB   ABS:8301 R0LB
+ R1     ABS:0001 R1
+ R10    ABS:000A R10
+ R11    ABS:000B R11
+ R12    ABS:000C R12
+ R13    ABS:000D R13
+ R14    ABS:000E R14
+ R15    ABS:000F R15
+ R1HB   ABS:8302 R1HB
+ R1LB   ABS:8303 R1LB
+ R2     ABS:0002 R2
+ R2HB   ABS:8304 R2HB
+ R2LB   ABS:8305 R2LB
+ R3     ABS:0003 R3
+ R3HB   ABS:8306 R3HB
+ R3LB   ABS:8307 R3LB
+ R4     ABS:0004 R4
+ R4HB   ABS:8308 R4HB
+ R4LB   ABS:8309 R4LB
+ R5     ABS:0005 R5
+ R6     ABS:0006 R6
+ R7     ABS:0007 R7
+ R8     ABS:0008 R8
+ R9     ABS:0009 R9
+ RAND01 ABS:6696 RAND01
+ RAND16 ABS:8340 RAND16
+ RANDNO ABS:666E RANDNO
+ RANDOM ABS:8341 RANDOM
+ RDUL   ABS:6936 RDUL
+ REGLD  ABS:601C REGLD
+ RSEED  ABS:8379 RSEED
+ RUDL   ABS:6940 RUDL
+ SCS1   ABS:6BB6 SCS1
+ SCS1E  ABS:6EAE SCS1E
+ SLAST  ABS:6F7E SLAST
+ SNDCSH ABS:1021 SNDCSH
+ SNDGLP ABS:1041 SNDGLP
+ SNDGRW ABS:1016 SNDGRW
+ SNDMOV ABS:1000 SNDMOV
+ SNDTRN ABS:100B SNDTRN
+ SNKSIZ ABS:8346 SNKSIZ
+ SOUND  ABS:664E SOUND
+ SOUNDS ABS:6988 SOUNDS
+ SS1    ABS:627C SS1
+ SS2    ABS:6292 SS2
+ SS3    ABS:65D0 SS3
+ SSNKSZ ABS:6054 SSNKSZ
+ STACK  ABS:8332 STACK
+ STATUS ABS:837C STATUS
+ STDHDR ABS:6000 STDHDR
+ STRPOS ABS:6050 STRPOS
+ SUBWS  ABS:8300 SUBWS
+ TDIR   ABS:8344 TDIR
+ TDOWN  ABS:68FA TDOWN
+ TDTBL  ABS:60D0 TDTBL
+ TEMP0  ABS:8324 TEMP0
+ TEMP1  ABS:8326 TEMP1
+ TEMP2  ABS:8328 TEMP2
+ TEMP3  ABS:832A TEMP3
+ TIMDLY ABS:8358 TIMDLY
+ TIMER  ABS:695E TIMER
+ TIMROW ABS:8356 TIMROW
+ TLEFT  ABS:6904 TLEFT
+ TMFLAG ABS:8354 TMFLAG
+ TMRDLY ABS:6056 TMRDLY
+ TMVDWN ABS:642A TMVDWN
+ TMVLFT ABS:6426 TMVLFT
+ TMVRGT ABS:6422 TMVRGT
+ TMVUP  ABS:6430 TMVUP
+ TRGHT  ABS:690E TRGHT
+ TRUE   ABS:604C TRUE
+ TUP    ABS:68F0 TUP
+ UPDD0  ABS:65E4 UPDD0
+ UPDDIR ABS:6572 UPDDIR
+ VINIT  ABS:67E4 VINIT
+ VMBW   ABS:672C VMBW
+ VMBW0  ABS:673A VMBW0
+ VMBW2  ABS:674A VMBW2
+ VMBW3  ABS:6754 VMBW3
+ VSBR   ABS:670E VSBR
+ VSBW   ABS:66DA VSBW
+ VSBW1  ABS:66E4 VSBW1
+ VSBW2  ABS:66E8 VSBW2
+ VSBW3  ABS:66EC VSBW3
+ VSMW   ABS:6784 VSMW
+ VSMW0  ABS:679A VSMW0
+ VTMP0  ABS:832C VTMP0
+ VTMP1  ABS:832E VTMP1
+ VTMP2  ABS:8330 VTMP2
+ W26    ABS:656E W26
+ W32    ABS:61E4 W32
+ W4     ABS:6396 W4
+ W6     ABS:63D8 W6
